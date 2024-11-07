@@ -2,6 +2,11 @@
 
 # Projeto Centro de Bem-Estar Animal Maria Alves
 
+
+# Iniciar container Docker 
+
+    docker build -t nome-do-projeto . 
+
 # Diretrizes para Commits #
 
 # Todos os commits devem ser realizados na branch prod. Para garantir um fluxo de trabalho organizado, siga estas etapas:
