@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  web:
+    image: python:3.9-slim
+    container_name: django-maria-alvez-backend_app
+    build:
+      context: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      - DJANGO_SETTINGS_MODULE=centro_de_bem_estar_maria_alvez.settings
+      - DATABASE_URL=mysql://root:rootpassword@db:3306/centro_de_bem_estar_maria_alvez
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    container_name: mysql_db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: centro_de_bem_estar_maria_alvez
+      MYSQL_USER: user
+      MYSQL_PASSWORD: UserPassword@2024
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
