@@ -13,6 +13,9 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 
+print(os.environ.get('DATABASE_URL'))
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -75,16 +78,14 @@ WSGI_APPLICATION = 'projetoMariaAlvez.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-url = urlparse(os.environ.get('DATABASE_URL'))
-
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': url.path[1:],  # nome do banco de dados será "centro_de_bem_estar_maria_alvez"
-        'USER': url.username,
-        'PASSWORD': url.password,
-        'HOST': url.hostname,
-        'PORT': url.port,
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('POSTGRES_DB', 'centro_de_bem_estar_maria_alvez'),
+        'USER': os.getenv('POSTGRES_USER', 'user'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'UserPassword@2024'),
+        'HOST': os.getenv('POSTGRES_HOST', 'db'),
+        'PORT': os.getenv('POSTGRES_PORT', '5432'),
     }
 }
 
