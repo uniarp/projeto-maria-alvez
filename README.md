@@ -1,5 +1,3 @@
-# projeto-maria-alvez
-
 # Projeto Centro de Bem-Estar Animal Maria Alves
 
 # Instalação DOCKER E DOCKER-COMPOSE
