@@ -48,11 +48,15 @@ Depois, você pode verificar se o Docker Compose está funcionando no terminal:
 
 docker-compose --version
 
-# Iniciar container Docker 
+# Iniciar container Docker
 
-    docker build -t nome-do-projeto . 
+    docker build -t nome-do-projeto .
 
-# Diretrizes para Commits #
+# iniciar todos os containers com docker-compose
+
+    docker-compose up -d
+
+# Diretrizes para Commits
 
 # Todos os commits devem ser realizados na branch prod. Para garantir um fluxo de trabalho organizado, siga estas etapas:
 
