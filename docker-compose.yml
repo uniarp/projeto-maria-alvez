@@ -1,12 +1,10 @@
-version: "3.8"
-
 services:
-  db:
+  postgres_db:
     image: postgres:17
     container_name: postgres_db
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: UserPassword@2024
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminadmin
       POSTGRES_DB: centro_de_bem_estar_maria_alvez
     volumes:
       - ./init_dump.sql:/docker-entrypoint-initdb.d/init_dump.sql
@@ -15,23 +13,26 @@ services:
       - "5432:5432"
 
   web:
-    image: python:3.9-slim
+    image: python:3.10-slim
     container_name: django-postgres-backend_app
     build:
       context: .
     depends_on:
-      - db
-    command: python manage.py runserver 0.0.0.0:8000
+      - postgres_db
+    command: >
+      sh -c "while ! nc -z postgres_db 5432; do sleep 1; done &&
+              python manage.py migrate &&
+              python manage.py runserver 0.0.0.0:8000"
     volumes:
       - .:/app
     working_dir: /app
     environment:
       - DJANGO_SETTINGS_MODULE=projetoMariaAlvez.settings
-      - POSTGRES_HOST=db
+      - POSTGRES_HOST=postgres_db
       - POSTGRES_PORT=5432
       - POSTGRES_DB=centro_de_bem_estar_maria_alvez
       - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=admin
+      - POSTGRES_PASSWORD=adminadmin
     ports:
       - "8000:8000"
 

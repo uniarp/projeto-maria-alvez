@@ -21,21 +21,27 @@ RUN pip list
 # Instalar psycopg2-binary para PostgreSQL
 RUN pip install psycopg2-binary
 
+# instalando o netcat 
+RUN apt-get update && apt-get install -y netcat-openbsd
+
 # Copie o restante do código da aplicação
 COPY . /app/
 
 # Exponha a porta do servidor Django (8000)
 EXPOSE 8000
 
+ENTRYPOINT ["/app/entrypoint.sh"]
+
 # Defina variáveis de ambiente para o superusuário (recomendação: não deixar no Dockerfile para produção)
+ENV PYTHONPATH=/app
 ENV DJANGO_SETTINGS_MODULE=projetoMariaAlvez.settings
 ENV DJANGO_SUPERUSER_USERNAME=admin \
     DJANGO_SUPERUSER_EMAIL=admin@admin.com \
     DJANGO_SUPERUSER_PASSWORD=admin \
     DB_NAME=centro_de_bem_estar_maria_alvez \
-    DB_USER=user \
-    DB_PASSWORD=UserPassword@2024 \
-    DB_HOST=db \
+    DB_USER=admin \
+    DB_PASSWORD=adminadmin \
+    DB_HOST=postgres_db \
     DB_PORT=5432
 
 # Comando para rodar a aplicação Django
@@ -44,3 +50,5 @@ CMD ["sh", "-c", "python manage.py migrate && \
     User.objects.filter(username='admin').exists() or \
     User.objects.create_superuser('$DJANGO_SUPERUSER_USERNAME', '$DJANGO_SUPERUSER_EMAIL', '$DJANGO_SUPERUSER_PASSWORD')\" && \
     python manage.py runserver 0.0.0.0:8000"]
+
+    
