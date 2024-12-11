@@ -96,7 +96,7 @@ DATABASES = {
         'NAME': os.getenv('POSTGRES_DB', 'centro_de_bem_estar_maria_alvez'),
         'USER': os.getenv('POSTGRES_USER', 'admin'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'adminadmin'),
-        'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
+        'HOST': os.getenv('POSTGRES_HOST', 'postgres_db'),
         'PORT': os.getenv('POSTGRES_PORT', '5432'),
     }
 }                       
