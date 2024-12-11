@@ -17,10 +17,12 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from .views import sample_api
+from projetoMariaAlvezApp.views import MedicamentoListCreateView, MedicamentoRemoveView
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/sample/', sample_api),
+    path('medicamentos/', MedicamentoListCreateView.as_view(), name='medicamento-list-create'),
+    path('medicamentos/remover/', MedicamentoRemoveView.as_view(), name='medicamento-remove'),
 ]
-
-
