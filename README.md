@@ -77,7 +77,7 @@ docker-compose --version
 
     Após revisar e testar suas alterações, faça o merge da sua branch de desenvolvimento para prod:
 
-        git checkout prod
+        git checkout main
         git merge nome-da-sua-branch
 
 # Push para o repositório remoto:
