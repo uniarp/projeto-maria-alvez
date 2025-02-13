@@ -82,9 +82,9 @@ docker-compose --version
 
 # Push para o repositório remoto:
 
-    Envie a branch prod para o repositório remoto:
+    Envie a branch main para o repositório remoto:
 
-        git push origin prod
+        git push origin main
 
 # Tecnologias Utilizadas
 
