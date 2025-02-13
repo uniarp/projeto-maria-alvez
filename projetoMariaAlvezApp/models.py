@@ -466,7 +466,6 @@ class RelatorioAcompanhamento:
         print(f"Data da Aplicação/Exame: {self.data_aplicacao_exame} | Próxima: {self.data_prevista_proximo}")
         print(f"Resultados de Exames: {self.resultados_exames}\n")
 
-
 class Consulta(models.Model):
     id_consulta = models.BigAutoField(primary_key=True)
     animal = models.ForeignKey('Animal', on_delete=models.CASCADE)
