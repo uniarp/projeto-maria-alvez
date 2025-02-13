@@ -1,4 +1,5 @@
 from validate_docbr import CPF
+from datetime import datetime, time
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -464,3 +465,80 @@ class RelatorioAcompanhamento:
         print(f"\nVacina/Exame: {self.tipo_vacina_exame}")
         print(f"Data da Aplicação/Exame: {self.data_aplicacao_exame} | Próxima: {self.data_prevista_proximo}")
         print(f"Resultados de Exames: {self.resultados_exames}\n")
+
+class AgendamentoConsulta(models.Model):
+    TIPO_AGENDAMENTO = [
+        ('consulta', 'Consulta'),
+        ('castracao', 'Castração'),
+        ('emergencia', 'Emergência'),
+    ]
+
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE, related_name='agendamentos')
+    animais = models.ManyToManyField(Animal, related_name='consultas')
+    veterinario = models.ForeignKey(Veterinario, on_delete=models.SET_NULL, null=True, related_name='agendamentos')
+    tipo = models.CharField(max_length=10, choices=TIPO_AGENDAMENTO, default='consulta')
+    data = models.DateField()
+    hora = models.TimeField()
+
+    def __str__(self):
+        return f"Agendamento {self.id_agendamento} - {self.tutor.nome} em {self.data} às {self.hora}"
+
+    def criar_agendamento(tutor_id, animais_ids, veterinario_id, data, hora, tipo):
+        # Validar tutor
+        try:
+            tutor = Tutor.objects.get(id=tutor_id)
+        except Tutor.DoesNotExist:
+            raise ValidationError("Tutor não encontrado.")
+        
+        # Validar animais
+        animais = Animal.objects.filter(id__in=animais_ids)
+        if not animais.exists():
+            raise ValidationError("Nenhum animal válido foi encontrado.")
+        if animais.count() != len(animais_ids):
+            raise ValidationError("Alguns IDs de animais não foram encontrados.")
+
+        # Validar veterinário
+        try:
+            veterinario = Veterinario.objects.get(id=veterinario_id)
+        except Veterinario.DoesNotExist:
+            raise ValidationError("Veterinário não encontrado.")
+
+        # Validar data e hora
+        agendamento_data = datetime.strptime(data, "%Y-%m-%d").date()
+        agendamento_hora = datetime.strptime(hora, "%H:%M:%S").time()
+
+        if tipo == 'castracao':
+            if agendamento_data.weekday() in [1, 3]:  # 1 = terça, 3 = quinta
+                raise ValidationError("Castrações não são permitidas às terças e quintas.")
+            if not (time(8, 0) <= agendamento_hora <= time(12, 0)):
+                raise ValidationError("Castrações só são permitidas no período da manhã.")
+
+        if tipo == 'consulta' and agendamento_data.weekday() in [1, 3]:
+            if not (time(13, 0) <= agendamento_hora <= time(18, 0)):
+                raise ValidationError("Consultas só são permitidas no período da tarde.")
+
+        if tipo == 'emergencia':
+            # Emergências podem ser a qualquer hora.
+            pass
+        else:
+            # Verificar conflitos de agendamento (exceto emergências)
+            conflito = AgendamentoConsulta.objects.filter(
+                veterinario=veterinario,
+                data=agendamento_data,
+                hora=agendamento_hora,
+            ).exists()
+            if conflito:
+                raise ValidationError("O veterinário já possui um agendamento nesse horário.")
+        
+        # Criar agendamento
+        agendamento = AgendamentoConsulta.objects.create(
+            tutor=tutor,
+            veterinario=veterinario,
+            tipo=tipo,
+            data=agendamento_data,
+            hora=agendamento_hora,
+        )
+        agendamento.animais.set(animais)
+        agendamento.save()
+
+        return agendamento
