@@ -58,7 +58,7 @@ docker-compose --version
 
 # Diretrizes para Commits
 
-# Todos os commits devem ser realizados na branch prod. Para garantir um fluxo de trabalho organizado, siga estas etapas:
+# Todos os commits devem ser realizados na branch de desenvolvimento Para garantir um fluxo de trabalho organizado, siga estas etapas:
 
     Crie uma branch para o desenvolvimento:
 
@@ -73,18 +73,7 @@ docker-compose --version
         git add .
         git commit -m "Descrição do commit"
 
-# Faça o merge na branch prod:
-
-    Após revisar e testar suas alterações, faça o merge da sua branch de desenvolvimento para prod:
-
-        git checkout main
-        git merge nome-da-sua-branch
-
-# Push para o repositório remoto:
-
-    Envie a branch main para o repositório remoto:
-
-        git push origin main
+        criar o pull request no github
 
 # Tecnologias Utilizadas
 
