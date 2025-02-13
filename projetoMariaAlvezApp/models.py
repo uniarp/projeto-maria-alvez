@@ -23,6 +23,28 @@ class Tutor(models.Model):
         cpf_validator = CPF()
         if not cpf_validator.validate(self.cpf):
             raise ValidationError("O CPF informado é inválido.")
+    
+class Veterinario(models.Model):
+    id_Veterinario = models.BigAutoField(primary_key=True)
+    nome = models.CharField(max_length=80)
+    sobrenome = models.CharField(max_length=80)
+    rua = models.CharField(max_length=80)
+    bairro = models.CharField(max_length=80)
+    numero = models.IntegerField()
+    cidade = models.CharField(max_length=80)
+    estado = models.CharField(max_length=2)  # Exemplo: SP, RJ
+    cep = models.CharField(max_length=9)
+    email = models.CharField(max_length=60)
+    telefone = models.CharField(max_length=15)
+    cpf = models.CharField(max_length=14)
+    def __str__(self):
+        return f"{self.nome} {self.sobrenome} - {self.cpf}"
+
+    def clean(self):
+        super().clean()
+        cpf_validator = CPF()
+        if not cpf_validator.validate(self.cpf):
+            raise ValidationError("O CPF informado é inválido.")
 
 class Especie(models.Model):
     id_especie = models.BigAutoField(primary_key=True)
