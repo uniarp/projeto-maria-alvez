@@ -41,8 +41,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'projetoMariaAlvezApp',
     'rest_framework',
+    'projetoMariaAlvezApp.apps.projetoMariaAlvezAppConfig'
 ]
 
 MIDDLEWARE = [
@@ -79,7 +79,18 @@ WSGI_APPLICATION = 'projetoMariaAlvez.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+
 DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+
+"""
+# Essa abaixo é a database original!
+DATABASES = {
+    
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('POSTGRES_DB', 'centro_de_bem_estar_maria_alvez'),
@@ -89,7 +100,7 @@ DATABASES = {
         'PORT': os.getenv('POSTGRES_PORT', '5432'),
     }
 }                       
-
+"""
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
