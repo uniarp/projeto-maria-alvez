@@ -109,7 +109,6 @@ class Exame(models.Model):
         return self.nome
 
 class Prestadores(models.Model):
-
     pass
 
 
@@ -465,3 +464,5 @@ class RelatorioAcompanhamento:
         print(f"\nVacina/Exame: {self.tipo_vacina_exame}")
         print(f"Data da Aplicação/Exame: {self.data_aplicacao_exame} | Próxima: {self.data_prevista_proximo}")
         print(f"Resultados de Exames: {self.resultados_exames}\n")
+
+    pass
