@@ -1,0 +1,5 @@
+Django<4.0,>=3.0
+psycopg2-binary>=2.9
+djangorestframework
+validate_docbr>=1.10.0
+django-cors-headers>=3.10.0

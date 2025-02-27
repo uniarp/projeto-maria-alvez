@@ -1,40 +1,26 @@
+version: '3.8'
+
 services:
-  postgres_db:
-    image: postgres:17
-    container_name: postgres_db
-    environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: adminadmin
-      POSTGRES_DB: centro_de_bem_estar_maria_alvez
-    volumes:
-      - ./init_dump.sql:/docker-entrypoint-initdb.d/init_dump.sql
-
-    ports:
-      - "5432:5432"
-
-  web:
-    image: python:3.10-slim
-    container_name: django-postgres-backend_app
+  backend:
     build:
-      context: .
-    depends_on:
-      - postgres_db
-    command: >
-      sh -c "while ! nc -z postgres_db 5432; do sleep 1; done &&
-              python manage.py migrate &&
-              python manage.py runserver 0.0.0.0:8000"
+      context: ./backend  # Diretório onde está o Dockerfile do backend
+    container_name: backend
+    command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - .:/app
-    working_dir: /app
-    environment:
-      - DJANGO_SETTINGS_MODULE=projetoMariaAlvez.settings
-      - POSTGRES_HOST=postgres_db
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=centro_de_bem_estar_maria_alvez
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=adminadmin
+      - ./backend:/app  # Monta o diretório backend no container
     ports:
-      - "8000:8000"
+      - "8000:8000"  # Mapeia a porta 8000 do backend
+    depends_on:
+      - db  # Aguarda o banco de dados ser iniciado
 
-volumes:
-  postgres_data:
+  db:
+    image: postgres:13  # Utiliza a imagem do PostgreSQL
+    container_name: db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: dbname
+    volumes:
+      - ./data/db:/var/lib/postgresql/data  # Persistência dos dados
+    ports:
+      - "5432:5432"  # Porta do banco de dados
