@@ -27,19 +27,18 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'corsheaders',  # Corrigido de 'corheaders' para 'corsheaders'
-    'projetoMariaAlvezApp.apps.projetoMariaAlvezAppConfig'
+    'corsheaders',
+    'projetoMariaAlvezApp.apps.projetoMariaAlvezAppConfig',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # Antes do CommonMiddleware
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # Certifique-se de que está após 'CommonMiddleware'
-    'django.middleware.common.CommonMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -76,24 +75,14 @@ WSGI_APPLICATION = 'projetoMariaAlvez.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
-
-"""
-# Essa abaixo é a database original!
-DATABASES = {
-    'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB', 'centro_de_bem_estar_maria_alvez'),
-        'USER': os.getenv('POSTGRES_USER', 'admin'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'adminadmin'),
-        'HOST': os.getenv('POSTGRES_HOST', 'postgres_db'),
-        'PORT': os.getenv('POSTGRES_PORT', '5432'),
+        'NAME': 'centro_de_bem_estar_maria_alvez',
+        'USER': 'admin',
+        'PASSWORD': 'adminadmin',
+        'HOST': 'postgres',
+        'PORT': '5432',
     }
 }
-"""
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -116,7 +105,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'pt-br'
 
 TIME_ZONE = 'UTC'
 
