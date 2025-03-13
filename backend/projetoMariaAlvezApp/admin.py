@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    Tutor, Especie, Raca, Animal, Vacina, Medicamento, Exame, Prestadores, vacinaVermifugos, animalCastracao, listaCastracao
+    Tutor, Especie, Raca, Animal, Vacina, Medicamento, Exame,
 )
 
 # Registre as classes no painel de administração
