@@ -1,26 +1,43 @@
-version: '3.8'
-
 services:
   backend:
     build:
-      context: ./backend  # Diretório onde está o Dockerfile do backend
+      context: ./backend
     container_name: backend
-    command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - ./backend:/app  # Monta o diretório backend no container
+      - ./backend:/app
     ports:
-      - "8000:8000"  # Mapeia a porta 8000 do backend
+      - "8000:8000"
     depends_on:
-      - db  # Aguarda o banco de dados ser iniciado
-
-  db:
-    image: postgres:13  # Utiliza a imagem do PostgreSQL
-    container_name: db
+      postgres:
+        condition: service_healthy  # Garante que o postgres esteja saudável
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: dbname
+      - DB_HOST=postgres
+      - DB_NAME=centro_de_bem_estar_maria_alvez
+      - DB_USER=admin
+      - DB_PASSWORD=adminadmin
+      - DB_PORT=5432
+
+  postgres:
+    image: postgres:13
+    container_name: postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminadmin
+      POSTGRES_DB: centro_de_bem_estar_maria_alvez
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_INITDB_ARGS: "--data-checksums"
     volumes:
-      - ./data/db:/var/lib/postgresql/data  # Persistência dos dados
+      - ${PWD}/backend/data/db:/var/lib/postgresql/data
     ports:
-      - "5432:5432"  # Porta do banco de dados
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d centro_de_bem_estar_maria_alvez"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 3s
+    command: ["postgres", "-c", "max_connections=200", "-c", "shared_buffers=256MB"]
+
+networks:
+  default:
+    driver: bridge

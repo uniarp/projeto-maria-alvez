@@ -1,38 +1,29 @@
-from django.shortcuts import render
-
-# Create your views here.
-
+# backend/projetoMariaAlvezApp/views.py
+from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
 from .models import Medicamento
-from .serializers import MedicamentoSerializer
+
+def sample_api(request):
+    return Response({"message": "Exemplo de API funcionando!"})
 
 class MedicamentoListCreateView(APIView):
     def get(self, request):
         medicamentos = Medicamento.objects.all()
-        serializer = MedicamentoSerializer(medicamentos, many=True)
-        return Response(serializer.data)
+        return Response({"medicamentos": [m.nome for m in medicamentos]})
 
     def post(self, request):
-        serializer = MedicamentoSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+        nome = request.data.get('nome', 'Novo Medicamento')
+        medicamento = Medicamento.objects.create(nome=nome)
+        return Response({"status": "Medicamento criado", "id": medicamento.id})
 
 class MedicamentoRemoveView(APIView):
-    def post(self, request):
-        nome = request.data.get('nome')
-        quantidade = request.data.get('quantidade')
-        try:
-            medicamento = Medicamento.objects.get(nome=nome)
-            if medicamento.quantidade >= quantidade:
-                medicamento.quantidade -= quantidade
-                medicamento.save()
-                return Response({"message": f"{quantidade} unidades de {nome} removidas."}, status=status.HTTP_200_OK)
-            else:
-                return Response({"error": "Quantidade insuficiente."}, status=status.HTTP_400_BAD_REQUEST)
-        except Medicamento.DoesNotExist:
-            return Response({"error": f"Medicamento {nome} não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+    def delete(self, request, pk=None):
+        if pk:
+            try:
+                medicamento = Medicamento.objects.get(id=pk)
+                medicamento.delete()
+                return Response({"status": "Medicamento removido"})
+            except Medicamento.DoesNotExist:
+                return Response({"error": "Medicamento não encontrado"}, status=404)
+        return Response({"error": "ID do medicamento é necessário"}, status=400)
