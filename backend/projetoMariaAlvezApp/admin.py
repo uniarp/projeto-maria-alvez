@@ -3,7 +3,7 @@ from .models import (
     Tutor, Especie, Raca, Animal, Vacina, Medicamento, Exame, Prestadores,
     VacinaVermifugos, AnimalCastracao, ListaCastracao, ExameVeterinario,
     ListaExames, Produto, Estoque, Cirurgia, Internacao, ConsultaClinica,
-    RelatorioAtendimento, RelatorioAcompanhamento
+    RelatorioAtendimento, RelatorioAcompanhamento,CadastroAnimalAdocao, FotoAnimal, Adocao
 )
 
 @admin.register(Tutor)
@@ -123,3 +123,21 @@ class RelatorioAcompanhamentoAdmin(admin.ModelAdmin):
     list_display = ('id_acompanhamento', 'animal', 'data_atendimento', 'tipo_atendimento', 'vet_responsavel')
     search_fields = ('animal__nome', 'vet_responsavel', 'diagnostico')
     list_filter = ('tipo_atendimento', 'data_atendimento', 'tipo_vacina_exame')
+    
+class FotoInline(admin.TabularInline):
+    model = FotoAnimal
+    extra = 1
+
+@admin.register(CadastroAnimalAdocao) 
+class CadastroAnimalAdocaoAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'especie', 'raca', 'idade', 'sexo', 'tamanho', 'peso', 'adotado')
+    search_fields = ('nome', 'especie', 'raca')
+    list_filter = ('especie', 'sexo', 'tamanho', 'adotado')
+    inlines = [FotoInline]
+
+@admin.register(Adocao)
+class AdocaoAdmin(admin.ModelAdmin):
+    list_display = ('animal', 'nome_adotante', 'cpf_cnpj', 'data_adocao')
+    search_fields = ('nome_adotante', 'cpf_cnpj')
+
+
