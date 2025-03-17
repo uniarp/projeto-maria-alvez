@@ -487,3 +487,67 @@ class RelatorioAcompanhamento(models.Model):
 
     def __str__(self):
         return f"Acompanhamento {self.id_acompanhamento} - {self.animal.nome}"
+    
+    
+    
+    
+
+class CadastroAnimalAdocao(models.Model):
+    SEXO_CHOICES = [
+        ('M', 'Macho'),
+        ('F', 'Fêmea'),
+    ]
+
+    TAMANHO_CHOICES = [
+        ('P', 'Pequeno'),
+        ('M', 'Médio'),
+        ('G', 'Grande'),
+    ]
+
+    nome = models.CharField(max_length=80, verbose_name="Nome", blank=False)
+    especie = models.CharField(max_length=50, choices=[('Cachorro', 'Cachorro'), ('Gato', 'Gato')], verbose_name="Espécie")
+    raca = models.CharField(max_length=80, blank=True, null=True, verbose_name="Raça")
+    idade = models.PositiveIntegerField(validators=[MinValueValidator(0)], verbose_name="Idade")
+    sexo = models.CharField(max_length=1, choices=SEXO_CHOICES, verbose_name="Sexo")
+    tamanho = models.CharField(max_length=1, choices=TAMANHO_CHOICES, verbose_name="Tamanho")
+    peso = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="Peso")
+    cor = models.CharField(max_length=50, verbose_name="Cor")
+    data_entrada = models.DateField(auto_now_add=True, verbose_name="Data de Entrada na Clínica")
+    adotado = models.BooleanField(default=False, verbose_name="Adotado")
+    
+    class Meta:
+        verbose_name = "Cadastro de Animal para Adoção"
+        verbose_name_plural = "Cadastros de Animais para Adoção"
+
+    def __str__(self):
+        return f"{self.nome} ({self.especie})"
+
+class FotoAnimal(models.Model):
+    animal = models.ForeignKey(CadastroAnimalAdocao, on_delete=models.CASCADE, related_name='fotos')
+    imagem = models.ImageField(upload_to='animais/')
+
+    def __str__(self):
+        return f"Foto de {self.animal.nome}"
+
+class Adocao(models.Model):
+    animal = models.OneToOneField(Animal, on_delete=models.CASCADE, related_name='adocao')
+    nome_adotante = models.CharField(max_length=200, verbose_name="Nome do Adotante")
+    cpf_cnpj = models.CharField(max_length=18, unique=True, verbose_name="CPF/CNPJ")
+    endereco = models.TextField(verbose_name="Endereço")
+    contato = models.CharField(max_length=20, verbose_name="Contato")
+    data_adocao = models.DateField(auto_now_add=True, verbose_name="Data da Adoção")
+    
+    class Meta:
+        verbose_name = "Registrar Adoção"
+        verbose_name_plural = "Adoções Realizadas" 
+    
+
+    def __str__(self):
+        return f"{self.nome_adotante} adotou {self.animal.nome}"
+
+    def clean(self):
+        """Valida o CPF/CNPJ antes de salvar"""
+        super().clean()
+        cpf_validator = CPF()
+        if not cpf_validator.validate(self.cpf_cnpj.replace('.', '').replace('-', '')):
+            raise ValidationError("O CPF informado é inválido.")

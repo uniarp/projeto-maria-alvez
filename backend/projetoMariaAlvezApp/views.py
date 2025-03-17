@@ -2,7 +2,9 @@
 from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Medicamento
+from rest_framework import viewsets, filters
+from .models import Medicamento, CadastroAnimalAdocao, Adocao
+from .serializers import CadastroAnimalAdocaoSerializer, AdocaoSerializer
 
 def sample_api(request):
     return Response({"message": "Exemplo de API funcionando!"})
@@ -27,3 +29,14 @@ class MedicamentoRemoveView(APIView):
             except Medicamento.DoesNotExist:
                 return Response({"error": "Medicamento não encontrado"}, status=404)
         return Response({"error": "ID do medicamento é necessário"}, status=400)
+    
+
+class CadastroAnimalAdocaoViewSet(APIView):
+    queryset = CadastroAnimalAdocao.objects.all()
+    serializer_class = CadastroAnimalAdocaoSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['nome', 'especie', 'raca', 'idade', 'sexo']
+
+class AdocaoViewSet(APIView):
+    queryset = Adocao.objects.all()
+    serializer_class = AdocaoSerializer
