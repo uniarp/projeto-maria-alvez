@@ -20,6 +20,7 @@ ALLOWED_HOSTS = []
 
 # Application definition
 INSTALLED_APPS = [
+    "jazzmin",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -122,3 +123,53 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+JAZZMIN_SETTINGS = {
+    "site_logo": "img/logo.png",  
+    "site_logo_classes": "img-circle elevation-3",  
+    "site_logo_icon": None,  
+    "site_title": "Centro de Bem Estar Animal - Maria Alvez",
+    "site_header": "Centro de Bem Estar Animal - Maria Alvez",
+    "site_brand": "CBEA Maria Alves",
+    "welcome_sign": "Centro de Bem Estar Animal Maria Alvez",
+    "copyright": "CBEA Maria Alves",
+    "custom_css": "css/custom_admin.css",
+
+    "topmenu_links": [
+        {"name": "Início",  "url": "admin:index", "permissions": ["auth.view_user"]},
+        {"model": "projetoMariaAlvezApp.Tutor"},
+        {"model": "projetoMariaAlvezApp.Animal"},
+    ],
+
+    "icons": {
+        "auth.User": "fas fa-user",
+        "auth.Group": "fas fa-users",
+        "projetoMariaAlvezApp.Tutor": "fas fa-user",
+        "projetoMariaAlvezApp.Animal": "fas fa-dog",
+        "projetoMariaAlvezApp.ConsultaClinica": "fas fa-stethoscope",
+        "projetoMariaAlvezApp.Cirurgia": "fas fa-cut",
+        "projetoMariaAlvezApp.Vacina": "fas fa-syringe",
+    },
+}
+
+JAZZMIN_UI_TWEAKS = {
+    "theme": "flatly", 
+
+    "navbar": "navbar-dark bg-primary",
+    "accent": "accent-info",
+    "sidebar": "sidebar-dark-primary",
+    "primary": "primary",
+
+    "custom_theme": {
+        "--primary": "#006699",     
+        "--accent": "#4CAF50",      
+        "--success": "#4CAF50",     
+        "--info": "#006699",        
+        "--warning": "#FFA726",     
+        "--danger": "#D64541",      
+        "--light": "#ffffff",
+        "--dark": "#2f2f2f",
+        "--body-bg": "#f4f6f9",     
+        "--text-color": "#212529",  
+    }
+}
