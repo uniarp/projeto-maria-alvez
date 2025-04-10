@@ -1,33 +1,162 @@
 from validate_docbr import CPF
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator, MinValueValidator, EmailValidator
 from django.db import models
+from django.urls import reverse
 from django.utils import timezone
+from datetime import timedelta, datetime, time
+
+
+def validar_cpf(valor):
+    cpf = CPF()
+    if not cpf.validate(valor.replace(".", "").replace("-", "")):
+        raise ValidationError("O CPF informado é inválido.")
+
+class Veterinario(models.Model):
+    nome = models.CharField(
+        max_length=100,
+        verbose_name="Nome completo",
+        help_text="Digite o nome completo do veterinário."
+    )
+    cpf = models.CharField(
+        max_length=14,
+        unique=True,
+        validators=[
+            RegexValidator(r'^\d{3}\.\d{3}\.\d{3}-\d{2}$', 'CPF deve estar no formato XXX.XXX.XXX-XX.'),
+            validar_cpf
+        ],
+        verbose_name="CPF",
+        help_text="Formato: XXX.XXX.XXX-XX"
+    )
+    telefone = models.CharField(
+        max_length=15,
+        verbose_name="Telefone",
+        help_text="Digite o telefone de contato. Ex: (99) 99999-9999",
+        validators=[
+            RegexValidator(r'^\(\d{2}\) \d{4,5}-\d{4}$', 'Telefone deve estar no formato (99) 99999-9999.')
+        ]
+    )
+    email = models.EmailField(
+        unique=True,
+        verbose_name="E-mail",
+        help_text="Digite um e-mail válido para contato.",
+        validators=[EmailValidator()]
+    )
+    especialidade = models.CharField(
+        max_length=100,
+        verbose_name="Especialidade",
+        help_text="Área de atuação do veterinário."
+    )
+    crmv = models.CharField(
+        max_length=20,
+        unique=True,
+        verbose_name="CRMV",
+        help_text="Registro profissional do veterinário (Ex: 12345-PR).",
+        validators=[
+            RegexValidator(r'^\d{4,6}-[A-Z]{2}$', 'CRMV deve estar no formato 12345-PR.')
+        ]
+    )
+    data_admissao = models.DateField(
+        verbose_name="Data de Admissão",
+        help_text="Data de início das atividades na clínica."
+    )
+
+    class Meta:
+        verbose_name = "Veterinário"
+        verbose_name_plural = "Veterinários"
+        ordering = ['nome']
+        indexes = [
+            models.Index(fields=['cpf']),
+            models.Index(fields=['email']),
+            models.Index(fields=['crmv']),
+        ]
+
+    def __str__(self):
+        return f"{self.nome} - CRMV: {self.crmv}"
+
+    def get_absolute_url(self):
+        return reverse('veterinario_detail', kwargs={'pk': self.pk})
+
+    def clean(self):
+        # Limpa os dados para padronizar antes de salvar
+        self.cpf = self.cpf.replace(".", "").replace("-", "")
+        self.telefone = self.telefone.replace("(", "").replace(")", "").replace(" ", "").replace("-", "")
+        self.crmv = self.crmv.upper()
+
 
 class Tutor(models.Model):
-    id_tutor = models.BigAutoField(primary_key=True)
-    nome = models.CharField(max_length=80)
-    sobrenome = models.CharField(max_length=80)
-    rua = models.CharField(max_length=80)
-    bairro = models.CharField(max_length=80)
-    numero = models.IntegerField()
-    cidade = models.CharField(max_length=80)
-    estado = models.CharField(max_length=2)  # Exemplo: SP, RJ
-    cep = models.CharField(max_length=9)
-    email = models.CharField(max_length=60)
-    telefone = models.CharField(max_length=15)
-    cpf = models.CharField(max_length=14)
+    id_tutor = models.BigAutoField(primary_key=True, verbose_name="ID do Tutor")
+    nome = models.CharField(max_length=80, verbose_name="Nome")
+    sobrenome = models.CharField(max_length=80, verbose_name="Sobrenome")
+    rua = models.CharField(max_length=80, verbose_name="Rua")
+    bairro = models.CharField(max_length=80, verbose_name="Bairro")
+    numero = models.IntegerField(verbose_name="Número", validators=[MinValueValidator(1)])
+    cidade = models.CharField(max_length=80, verbose_name="Cidade")
+    estado = models.CharField(max_length=2, verbose_name="Estado")
+    cep = models.CharField(
+        max_length=9,
+        verbose_name="CEP",
+        validators=[RegexValidator(
+    r'^\d{5}[-.\s]?\d{3}$',
+    'Digite um CEP válido no formato: 12345-678, 12345678, ou 12345 678.'
+)]
+    )
+    email = models.EmailField(verbose_name="E-mail")
+    telefone = models.CharField(
+        max_length=15,
+        verbose_name="Telefone",
+        validators=[RegexValidator(
+    r'^\+?55?\s?(\(?\d{2}\)?\s?)?\d{8,9}|\d{10,11}$',
+    'Digite um número de telefone válido no formato: +55 (DD) XXXX-XXXX, (DD) XXXX-XXXX'
+)]
+    )
+    cpf = models.CharField(
+    max_length=14,
+    verbose_name="CPF",
+    unique=True,
+    validators=[RegexValidator(
+    r'^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$|\d{11}$',
+    'Digite um CPF válido no formato: 123.456.789-00 ou 01234567890 (11 dígitos). O CPF será armazenado como 01234567890 (somente dígitos).'
+)]
+)
+
+    data_cadastro = models.DateField(
+        verbose_name="Data de Cadastro",
+        default=timezone.now,
+        help_text="Data em que o tutor foi cadastrado"
+    )
+
+    class Meta:
+        verbose_name = "Tutor"
+        verbose_name_plural = "Tutores"
+        indexes = [
+            models.Index(fields=['cpf'], name='tutor_cpf_idx'),
+            models.Index(fields=['nome', 'sobrenome'], name='tutor_nome_idx'),
+        ]
+
     def __str__(self):
+        """Retorna uma representação legível do tutor no formato 'Nome Sobrenome - CPF'."""
         return f"{self.nome} {self.sobrenome} - {self.cpf}"
 
     def clean(self):
+        """Valida o CPF antes de salvar."""
         super().clean()
         cpf_validator = CPF()
-        if not cpf_validator.validate(self.cpf):
+        if not cpf_validator.validate(self.cpf.replace('.', '').replace('-', '')):
             raise ValidationError("O CPF informado é inválido.")
+
+    @property
+    def nome_completo(self):
+        """Retorna o nome completo do tutor."""
+        return f"{self.nome} {self.sobrenome}"
 
 class Especie(models.Model):
     id_especie = models.BigAutoField(primary_key=True)
     nome = models.CharField(max_length=80)
+
+    class Meta:
+        verbose_name = "Espécie"
+        verbose_name_plural = "Espécies"
 
     def __str__(self):
         return self.nome
@@ -37,19 +166,75 @@ class Raca(models.Model):
     nome = models.CharField(max_length=80)
     especie = models.ForeignKey(Especie, on_delete=models.CASCADE)
 
+    class Meta:
+        verbose_name = "Raça"
+        verbose_name_plural = "Raças"
+
     def __str__(self):
         return self.nome
 
 class Animal(models.Model):
-    id_animal = models.BigAutoField(primary_key=True)
-    nome = models.CharField(max_length=80)
-    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
-    raca = models.ForeignKey(Raca, on_delete=models.CASCADE)
-    idade = models.IntegerField()
-    especie = models.ForeignKey(Especie, on_delete=models.CASCADE)
+
+    id_animal = models.BigAutoField(primary_key=True, verbose_name="ID do Animal")
+    nome = models.CharField(
+        max_length=80,
+        verbose_name="Nome",
+        blank=False,
+        help_text="Nome do animal (máximo 80 caracteres)"
+    )
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE, verbose_name="Tutor", related_name="animais")
+    raca = models.ForeignKey(Raca, on_delete=models.CASCADE, verbose_name="Raça", related_name="animais")
+    idade = models.IntegerField(
+        verbose_name="Idade",
+        validators=[MinValueValidator(0, "A idade deve ser maior ou igual a 0")],
+    )
+    especie = models.ForeignKey(Especie, on_delete=models.CASCADE, verbose_name="Espécie", related_name="animais")
+    data_cadastro = models.DateField(
+        verbose_name="Data de Cadastro",
+        default=timezone.now,
+        help_text="Data em que o animal foi cadastrado"
+    )
+
+    class Meta:
+        verbose_name = "Animal"
+        verbose_name_plural = "Animais"
+        indexes = [
+            models.Index(fields=['nome'], name='animal_nome_idx'),
+            models.Index(fields=['tutor'], name='animal_tutor_idx'),
+            models.Index(fields=['especie'], name='animal_especie_idx'),
+        ]
 
     def __str__(self):
         return self.nome
+
+    def clean(self):
+        """Valida a idade e a consistência dos relacionamentos."""
+        super().clean()
+        if self.idade < 0:
+            raise ValidationError("A idade do animal não pode ser negativa.")
+        if not self.tutor:
+            raise ValidationError("Um animal deve ter um tutor associado.")
+        if not self.raca or not self.especie:
+            raise ValidationError("Raça e espécie são obrigatórios.")
+        if self.data_cadastro > timezone.now().date():
+            raise ValidationError("A data de cadastro não pode ser no futuro.")
+
+    @property
+    def idade_em_meses(self):
+        """Calcula a idade do animal em meses."""
+        from datetime import date
+        hoje = date.today()
+        meses = (hoje.year - self.data_cadastro.year) * 12 + (hoje.month - self.data_cadastro.month)
+        return max(0, meses)  # Garante que não seja negativo
+
+    def eh_valido(self):
+        """Verifica se o animal tem idade válida e tutor associado."""
+        return self.idade >= 0 and self.tutor is not None
+
+    def get_absolute_url(self):
+        """Retorna a URL para visualizar o animal no admin ou API."""
+        from django.urls import reverse
+        return reverse('animal-detail', kwargs={'pk': self.pk})  # Ajuste o nome da URL conforme necessário
 
 class Vacina(models.Model):
     id_vacina = models.BigAutoField(primary_key=True)
@@ -65,6 +250,10 @@ class Vacina(models.Model):
     recomendacoes = models.TextField(blank=True, null=True)
     data_registro = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        verbose_name = "Vacina"
+        verbose_name_plural = "Vacinas"
+
     def __str__(self):
         return self.nome
 
@@ -78,19 +267,23 @@ class Medicamento(models.Model):
     contraindicacoes = models.TextField(blank=True, null=True)
     dose = models.CharField(max_length=50)
     administracao = models.CharField(
-    max_length=50,
-    choices=[
-        ('Oral', 'Oral'),
-        ('Injetável', 'Injetável'),
-        ('Tópico', 'Tópico'),
-    ],
-    default='Oral'  # Define um valor padrão para os registros existentes
-)
+        max_length=50,
+        choices=[
+            ('Oral', 'Oral'),
+            ('Injetável', 'Injetável'),
+            ('Tópico', 'Tópico'),
+        ],
+        default='Oral'
+    )
     fabricante = models.CharField(max_length=100)
     estoque = models.IntegerField()
     preco = models.DecimalField(max_digits=10, decimal_places=2)
     validade = models.DateField()
     data_registro = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "Medicamento"
+        verbose_name_plural = "Medicamentos"
 
     def __str__(self):
         return self.nome
@@ -104,369 +297,350 @@ class Exame(models.Model):
         ('Laboratorial', 'Laboratorial'),
         ('Clínico', 'Clínico'),
     ])
-    especie = models.ForeignKey(Especie, on_delete=models.CASCADE)  # Alterado para ForeignKey
+    especie = models.ForeignKey(Especie, on_delete=models.CASCADE)
     preco = models.DecimalField(max_digits=10, decimal_places=2)
     equipamento = models.CharField(max_length=100, blank=True, null=True)
     duracao = models.DurationField(help_text="Duração média do exame (hh:mm:ss)")
     recomendacoes_pre = models.TextField(blank=True, null=True)
     data_registro = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        verbose_name = "Exame"
+        verbose_name_plural = "Exames"
+
     def __str__(self):
         return self.nome
 
 class Prestadores(models.Model):
-    pass
+    id_prestador = models.BigAutoField(primary_key=True)
+    nome = models.CharField(max_length=100)
 
+    class Meta:
+        verbose_name = "Prestador"
+        verbose_name_plural = "Prestadores"
 
-from django.db import models
-from datetime import datetime, timedelta
+    def __str__(self):
+        return self.nome
 
-# Create your models here.
+class VacinaVermifugos(models.Model):
+    id_vacina_vermifugo = models.BigAutoField(primary_key=True)
+    nome_animal = models.CharField(max_length=80)
+    especie = models.ForeignKey(Especie, on_delete=models.CASCADE)
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
+    tipo = models.CharField(max_length=50)
+    data_aplicacao = models.DateField()
+    data_proximo_reforco = models.DateField(blank=True, null=True)
+    observacoes = models.TextField(blank=True, null=True)
 
-class vacinaVermifugos:
-    def __init__(self, nome_animal, especie, nome_tutor, tipo, data_aplicacao, data_proximo_reforco, observacoes=""):
-        self.nome_animal = nome_animal
-        self.especie = especie
-        self.nome_tutor = nome_tutor
-        self.tipo = tipo
-        self.data_aplicacao = data_aplicacao
-        self.data_proximo_reforco = data_proximo_reforco
-        self.observacoes = observacoes
+    class Meta:
+        verbose_name = "Vacina/Vermífugo"
+        verbose_name_plural = "Vacinas/Vermífugos"
 
-    def calcular_proximo_reforco(self, intervalo_dias):
+    def __str__(self):
+        return f"{self.nome_animal} - {self.tipo}"
+
+    def calcular_proximo_reforco(self):
         if self.data_aplicacao:
-            self.data_proximo_reforco = self.data_aplicacao + timedelta(days=intervalo_dias)
-        else:
-            print("Data de aplicação não definida!")
+            self.data_proximo_reforco = self.data_aplicacao + timedelta(days=30)
+            self.save()
 
-    def exibir_dados(self):
-        print(f"Nome do Animal: {self.nome_animal}")
-        print(f"Espécie: {self.especie}")
-        print(f"Nome do Tutor: {self.nome_tutor}")
-        print(f"Tipo: {self.tipo}")
-        print(f"Data da Aplicação: {self.data_aplicacao.strftime('%d/%m/%Y') if self.data_aplicacao else 'N/A'}")
-        print(f"Data do Próximo Reforço: {self.data_proximo_reforco.strftime('%d/%m/%Y') if self.calcular_proximo_reforco else 'N/A'}")
-        print(f"Observações: {self.observacoes}")
+class AnimalCastracao(models.Model):
+    id_castracao = models.BigAutoField(primary_key=True)
+    nome_animal = models.CharField(max_length=80)
+    posicao_fila = models.IntegerField()
+    especie = models.ForeignKey(Especie, on_delete=models.CASCADE)
+    raca = models.ForeignKey(Raca, on_delete=models.CASCADE)
+    sexo = models.CharField(max_length=10, choices=[('M', 'Macho'), ('F', 'Fêmea')])
+    idade = models.IntegerField()
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
+    data_cadastro = models.DateField()
+    status_castracao = models.CharField(max_length=20, choices=[('Pendente', 'Pendente'), ('Realizada', 'Realizada')])
+    data_prevista_castracao = models.DateField(blank=True, null=True)
 
+    class Meta:
+        verbose_name = "Animal para Castração"
+        verbose_name_plural = "Animais para Castração"
 
-class animalCastracao:
-    def __init__(self, nome_animal, posicao_fila, especie, raca, sexo, idade, nome_tutor, data_cadastro, status_castracao, data_prevista_castracao):
-        self.nome_animal = nome_animal
-        self.posicao_fila = posicao_fila
-        self.especie = especie
-        self.raca = raca
-        self.sexo = sexo
-        self.idade = idade
-        self.nome_tutor = nome_tutor
-        self.data_cadastro = datetime.strptime(data_cadastro, '%d/%m/%Y') if data_cadastro else None
-        self.status_castracao = status_castracao
-        self.data_prevista_castracao = datetime.strptime(data_prevista_castracao, '%d/%m/%Y') if data_prevista_castracao else None
+    def clean(self):
+        super().clean()
+        if self.data_prevista_castracao and self.data_cadastro:
+            if self.data_prevista_castracao < self.data_cadastro:
+                raise ValidationError("A data prevista para castração não pode ser anterior à data de cadastro.")
 
-    def exibir_dados(self):
-        print(f"Nome do Animal: {self.nome_animal}")
-        print(f"Posição na Fila: {self.posicao_fila}")
-        print(f"Espécie: {self.especie}")
-        print(f"Raça: {self.raca}")
-        print(f"Sexo: {self.sexo}")
-        print(f"Idade: {self.idade}")
-        print(f"Nome do Tutor: {self.nome_tutor}")
-        print(f"Data de Cadastro: {self.data_cadastro.strftime('%d/%m/%Y') if self.data_cadastro else 'N/A'}")
-        print(f"Status da Castração: {self.status_castracao}")
-        print(f"Data Prevista para Castração: {self.data_prevista_castracao.strftime('%d/%m/%Y') if self.data_prevista_castracao else 'N/A'}")
+    def __str__(self):
+        return f"{self.nome_animal} - {self.status_castracao}"
 
-    def atualizar_status(self, novo_status):
-        self.status_castracao = novo_status
-        print(f"Status atualizado para: {self.status_castracao}")
+class ListaCastracao(models.Model):
+    id_lista = models.BigAutoField(primary_key=True)
+    animais = models.ManyToManyField(AnimalCastracao)
+    nome_lista = models.CharField(max_length=100)
 
-class listaCastracao:
-    def __init__ (self):
-        self.animais = []
+    class Meta:
+        verbose_name = "Lista de Castração"
+        verbose_name_plural = "Listas de Castração"
 
-    def adicionar_animal(self, animal):
-        self.animais.append(animal)
-        print(f"Animal {animal.nome_animal} adicionado a lista de castração")
+    def __str__(self):
+        return self.nome_lista
 
-    def exibir_lista(self):
-        print("Lista de Castração")
-        for animal in self.animais:
-            animal.exibir_dados()
-            print("-" * 30)
+class ExameVeterinario(models.Model):
+    id_exame_vet = models.BigAutoField(primary_key=True)
+    animal = models.ForeignKey(Animal, on_delete=models.CASCADE)
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
+    tipo_exame = models.CharField(max_length=50)
+    data_exame = models.DateField()
+    veterinario_solicitante = models.CharField(max_length=100)
+    resultados = models.TextField(blank=True, null=True)
+    observacoes = models.TextField(blank=True, null=True)
 
-    def filtrar_status(self, status):
-        print(f"Animais com status '{status}':")
-        filtrados = [animal for animal in self.animais if animal.status_castracao == status]
-        for animal in filtrados:
-            animal.exibir_dados()
-            print("-" * 30)
+    class Meta:
+        verbose_name = "Exame Veterinário"
+        verbose_name_plural = "Exames Veterinários"
 
-    def buscar_por_id(self, id_animal):
-        for animal in self.animais:
-            if animal.id_animal == id_animal:
-                return animal
-        print(f"Animal com ID {id_animal} não encontrado.")
-        return None
+    def __str__(self):
+        return f"{self.animal.nome} - {self.tipo_exame}"
 
-class ExameVeterinario:
-    def __init__(self, id_exame, nome_animal, nome_tutor, tipo_exame, data_exame, veterinario_solicitante, resultados=None, observacoes=None):
-        self.id_exame = id_exame  # Identificador único do exame
-        self.nome_animal = nome_animal
-        self.nome_tutor = nome_tutor
-        self.tipo_exame = tipo_exame
-        self.data_exame = datetime.strptime(data_exame, '%d/%m/%Y') if data_exame else None
-        self.veterinario_solicitante = veterinario_solicitante
-        self.resultados = resultados
-        self.observacoes = observacoes
+class ListaExames(models.Model):
+    id_lista_exames = models.BigAutoField(primary_key=True)
+    exames = models.ManyToManyField(ExameVeterinario)
+    nome_lista = models.CharField(max_length=100)
 
-    def exibir_dados(self):
-        print(f"ID do Exame: {self.id_exame}")
-        print(f"Nome do Animal: {self.nome_animal}")
-        print(f"Nome do Tutor: {self.nome_tutor}")
-        print(f"Tipo de Exame: {self.tipo_exame}")
-        print(f"Data do Exame: {self.data_exame.strftime('%d/%m/%Y') if self.data_exame else 'N/A'}")
-        print(f"Veterinário Solicitante: {self.veterinario_solicitante}")
-        print(f"Resultados: {self.resultados if self.resultados else 'Aguardando'}")
-        print(f"Observações: {self.observacoes if self.observacoes else 'Nenhuma'}")
-        print("-" * 40)
+    class Meta:
+        verbose_name = "Lista de Exames"
+        verbose_name_plural = "Listas de Exames"
 
-    def atualizar_resultados(self, novo_resultado):
-        self.resultados = novo_resultado
-        print(f"Resultados atualizados para: {self.resultados}")
+    def __str__(self):
+        return self.nome_lista
 
-    def adicionar_observacao(self, nova_observacao):
-        if self.observacoes:
-            self.observacoes += f" | {nova_observacao}"
-        else:
-            self.observacoes = nova_observacao
-        print("Observação adicionada com sucesso!")
+class Produto(models.Model):
+    id_produto = models.BigAutoField(primary_key=True)
+    nome = models.CharField(max_length=100)
+    quantidade = models.IntegerField()
+    validade = models.DateField()
+    fornecedor = models.CharField(max_length=100)
+    quantidade_minima = models.IntegerField()
+    data_ultima_reposicao = models.DateField()
 
-class ListaExames:
-    def __init__(self):
-        self.exames = []
+    class Meta:
+        verbose_name = "Produto"
+        verbose_name_plural = "Produtos"
 
-    def adicionar_exame(self, exame):
-        self.exames.append(exame)
-        print(f"Exame de {exame.nome_animal} cadastrado com sucesso!")
-
-    def exibir_lista(self):
-        print("\nLista de Exames:")
-        for exame in self.exames:
-            exame.exibir_dados()
-
-    def buscar_por_id(self, id_exame):
-        for exame in self.exames:
-            if exame.id_exame == id_exame:
-                return exame
-        print(f"Exame com ID {id_exame} não encontrado.")
-        return None
-
-    def filtrar_por_tipo(self, tipo_exame):
-        print(f"\nExames do tipo '{tipo_exame}':")
-        filtrados = [exame for exame in self.exames if exame.tipo_exame == tipo_exame]
-        for exame in filtrados:
-            exame.exibir_dados()
-
-class Produto:
-    def __init__(self, id_produto, nome, quantidade, validade, fornecedor, quantidade_minima, data_ultima_reposicao):
-        self.id_produto = id_produto  # Identificador único do produto
-        self.nome = nome
-        self.quantidade = quantidade
-        self.validade = datetime.strptime(validade, "%d/%m/%Y") if validade else None
-        self.fornecedor = fornecedor
-        self.quantidade_minima = quantidade_minima
-        self.data_ultima_reposicao = datetime.strptime(data_ultima_reposicao, "%d/%m/%Y") if data_ultima_reposicao else None
-
-    def exibir_dados(self):
-        print(f"ID do Produto: {self.id_produto}")
-        print(f"Nome: {self.nome}")
-        print(f"Quantidade em Estoque: {self.quantidade}")
-        print(f"Validade: {self.validade.strftime('%d/%m/%Y') if self.validade else 'N/A'}")
-        print(f"Fornecedor: {self.fornecedor}")
-        print(f"Quantidade Mínima: {self.quantidade_minima}")
-        print(f"Última Reposição: {self.data_ultima_reposicao.strftime('%d/%m/%Y') if self.data_ultima_reposicao else 'N/A'}")
-        print("-" * 40)
+    def __str__(self):
+        return self.nome
 
     def precisa_repor(self):
         return self.quantidade < self.quantidade_minima
 
-    def atualizar_estoque(self, nova_quantidade, data_reposicao):
-        self.quantidade = nova_quantidade
-        self.data_ultima_reposicao = datetime.strptime(data_reposicao, "%d/%m/%Y")
-        print(f"Estoque atualizado! Nova quantidade: {self.quantidade}")
+class Estoque(models.Model):
+    id_estoque = models.BigAutoField(primary_key=True)
+    produtos = models.ManyToManyField(Produto)
+    nome_estoque = models.CharField(max_length=100)
 
-class Estoque:
-    def __init__(self):
-        self.produtos = []
+    class Meta:
+        verbose_name = "Estoque"
+        verbose_name_plural = "Estoques"
 
-    def adicionar_produto(self, produto):
-        self.produtos.append(produto)
-        print(f"Produto '{produto.nome}' cadastrado com sucesso!")
+    def __str__(self):
+        return self.nome_estoque
 
-    def exibir_estoque(self):
-        print("\nRelatório de Estoque:")
-        for produto in self.produtos:
-            produto.exibir_dados()
+class Cirurgia(models.Model):
+    id_cirurgia = models.BigAutoField(primary_key=True)
+    animal = models.ForeignKey(Animal, on_delete=models.CASCADE)
+    especie = models.ForeignKey(Especie, on_delete=models.CASCADE)
+    raca = models.ForeignKey(Raca, on_delete=models.CASCADE)
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
+    tipo_cirurgia = models.CharField(max_length=100)
+    veterinario = models.CharField(max_length=100)
+    responsavel = models.CharField(max_length=100)
+    data_cirurgia = models.DateField()
+    observacoes = models.TextField(blank=True, null=True)
+    pos_cirurgicas = models.TextField(blank=True, null=True)
 
-    def verificar_necessidade_reposicao(self):
-        print("\nProdutos que precisam de reposição:")
-        for produto in self.produtos:
-            if produto.precisa_repor():
-                print(f"- {produto.nome} (Quantidade: {produto.quantidade} | Mínimo: {produto.quantidade_minima})")
-        print("-" * 40)
+    class Meta:
+        verbose_name = "Cirurgia"
+        verbose_name_plural = "Cirurgias"
 
-    def buscar_por_nome(self, nome):
-        for produto in self.produtos:
-            if produto.nome.lower() == nome.lower():
-                return produto
-        print(f"Produto '{nome}' não encontrado.")
-        return None
+    def __str__(self):
+        return f"{self.animal.nome} - {self.tipo_cirurgia}"
 
-class Cirurgia:
-    def __init__(self, nome_animal, especie, raca, nome_tutor, tipo_cirurgia, veterinario, responsavel, data_cirurgia, observacoes, pos_cirurgicas):
-        self.nome_animal = nome_animal
-        self.especie = especie
-        self.raca = raca
-        self.nome_tutor = nome_tutor
-        self.tipo_cirurgia = tipo_cirurgia
-        self.veterinario = veterinario
-        self.responsavel = responsavel
-        self.data_cirurgia = data_cirurgia
-        self.observacoes = observacoes
-        self.pos_cirurgicas = pos_cirurgicas
+class Internacao(models.Model):
+    id_internacao = models.BigAutoField(primary_key=True)
+    animal = models.ForeignKey(Animal, on_delete=models.CASCADE)
+    especie = models.ForeignKey(Especie, on_delete=models.CASCADE)
+    raca = models.ForeignKey(Raca, on_delete=models.CASCADE)
+    motivo_internacao = models.TextField()
+    data_entrada = models.DateField()
+    data_saida = models.DateField(blank=True, null=True)
+    status_recuperacao = models.CharField(max_length=50)
+    observacoes = models.TextField(blank=True, null=True)
 
-    def exibir_dados(self):
-        print(f"Nome do Animal: {self.nome_animal}")
-        print(f"Espécie: {self.especie}")
-        print(f"Raça: {self.raca}")
-        print(f"Nome do Tutor: {self.nome_tutor}")
-        print(f"Tipo de Cirurgia: {self.tipo_cirurgia}")
-        print(f"Veterinário: {self.veterinario}")
-        print(f"Responsável: {self.responsavel}")
-        print(f"Data da Cirurgia: {self.data_cirurgia}")
-        print(f"Observações: {self.observacoes}")
-        print(f"Pós-Cirúrgicas: {self.pos_cirurgicas}")
+    class Meta:
+        verbose_name = "Internação"
+        verbose_name_plural = "Internações"
 
-class Internacao:
-    def __init__(self, nome_animal, especie, raca, motivo_internacao, data_entrada, data_saida, status_recuperacao, observacoes):
-        self.nome_animal = nome_animal
-        self.especie = especie
-        self.raca = raca
-        self.motivo_internacao = motivo_internacao
-        self.data_entrada = data_entrada
-        self.data_saida = data_saida
-        self.status_recuperacao = status_recuperacao
-        self.observacoes = observacoes
+    def __str__(self):
+        return f"{self.animal.nome} - {self.motivo_internacao}"
 
-    def exibir_dados(self):
-        print(f"Nome do Animal: {self.nome_animal}")
-        print(f"Espécie: {self.especie}")
-        print(f"Raça: {self.raca}")
-        print(f"Motivo da Internação: {self.motivo_internacao}")
-        print(f"Data de Entrada: {self.data_entrada}")
-        print(f"Data de Saída: {self.data_saida}")
-        print(f"Status da Recuperação: {self.status_recuperacao}")
-        print(f"Observações: {self.observacoes}")
+class ConsultaClinica(models.Model):
+    id_consulta = models.BigAutoField(primary_key=True)
+    motivo_atendimento = models.TextField()
+    valor_consulta = models.DecimalField(max_digits=10, decimal_places=2)
+    valor_medicamentos = models.DecimalField(max_digits=10, decimal_places=2)
+    observacoes = models.TextField(blank=True, null=True)
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
+    data_hora = models.DateTimeField(
+        verbose_name="Data e Hora da Consulta",
+        default=timezone.now
+    )
 
-class ConsultaClinica:
-    def __init__(self, id_consulta, motivo_atendimento, valor_consulta, valor_medicamentos, observacoes, data_hora, tutor):
-        self.id_consulta = id_consulta
-        self.motivo_atendimento = motivo_atendimento
-        self.valor_consulta = valor_consulta
-        self.valor_medicamentos = valor_medicamentos
-        self.observacoes = observacoes
-        self.data_hora = data_hora
-        self.tutor = tutor
+    class Meta:
+        verbose_name = "Consulta Clínica"
+        verbose_name_plural = "Consultas Clínicas"
+
+    def __str__(self):
+        return f"Consulta {self.id_consulta} - {self.tutor}"
 
     def calcular_total(self):
         return self.valor_consulta + self.valor_medicamentos
 
-    def exibir_dados(self):
-        print(f"ID da Consulta: {self.id_consulta}")
-        print(f"Motivo do Atendimento: {self.motivo_atendimento}")
-        print(f"Valor da Consulta: R$ {self.valor_consulta:.2f}")
-        print(f"Valor dos Medicamentos: R$ {self.valor_medicamentos:.2f}")
-        print(f"Valor Total: R$ {self.calcular_total():.2f}")
-        print(f"Observações: {self.observacoes}")
-        print(f"Data e Hora: {self.data_hora}")
-        print(f"Tutor: {self.tutor}")
+class RelatorioAtendimento(models.Model):
+    id_relatorio = models.BigAutoField(primary_key=True)
+    data_atendimento = models.DateField()
+    hora_atendimento = models.TimeField()
+    tipo_atendimento = models.CharField(max_length=50)
+    vet_responsavel = models.CharField(max_length=100)
+    diagnostico_inicial = models.TextField()
+    observacoes = models.TextField(blank=True, null=True)
+    animal = models.ForeignKey(Animal, on_delete=models.CASCADE)
+    especie = models.ForeignKey(Especie, on_delete=models.CASCADE)
+    raca = models.ForeignKey(Raca, on_delete=models.CASCADE)
+    idade = models.IntegerField()
+    sexo = models.CharField(max_length=10, choices=[('M', 'Macho'), ('F', 'Fêmea')])
+    peso = models.FloatField()
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
+    telefone_contato = models.CharField(max_length=15)
+    procedimento = models.TextField()
+    medicamentos = models.TextField()
+    dosagem = models.CharField(max_length=50)
+    frequencia = models.CharField(max_length=50)
+    orientacoes_tutor = models.TextField()
+    data_retorno = models.DateField(blank=True, null=True)
 
-class RelatorioAtendimento:
-    def __init__(self, data_atendimento, hora_atendimento, tipo_atendimento, vet_responsavel, diagnostico_inicial, observacoes, nome_animal, especie, raca, 
-                idade, sexo, peso, nome_tutor, telefone_contato, procedimento, medicamentos, dosagem, frequencia, orientacoes_tutor, data_retorno):
-        self.data_atendimento = data_atendimento
-        self.hora_atendimento = hora_atendimento
-        self.tipo_atendimento = tipo_atendimento
-        self.vet_responsavel = vet_responsavel
-        self.diagnostico_inicial = diagnostico_inicial
-        self.observacoes = observacoes
-        self.nome_animal = nome_animal
-        self.especie = especie
-        self.raca = raca
-        self.idade = idade
-        self.sexo = sexo
-        self.peso = peso
-        self.nome_tutor = nome_tutor
-        self.telefone_contato = telefone_contato
-        self.procedimento = procedimento
-        self.medicamentos = medicamentos
-        self.dosagem = dosagem
-        self.frequencia = frequencia
-        self.orientacoes_tutor = orientacoes_tutor
-        self.data_retorno = data_retorno
+    class Meta:
+        verbose_name = "Relatório de Atendimento"
+        verbose_name_plural = "Relatórios de Atendimento"
 
-    def exibir_dados(self):
-        print(f"\nData: {self.data_atendimento} Hora: {self.hora_atendimento}")
-        print(f"Tipo de Atendimento: {self.tipo_atendimento}")
-        print(f"Veterinário Responsável: {self.vet_responsavel}")
-        print(f"Diagnóstico Inicial: {self.diagnostico_inicial}")
-        print(f"Observações: {self.observacoes}")
-        print(f"\nAnimal: {self.nome_animal} | Espécie: {self.especie} | Raça: {self.raca} | Idade: {self.idade} | Sexo: {self.sexo} | Peso: {self.peso}kg")
-        print(f"Tutor: {self.nome_tutor} | Contato: {self.telefone_contato}")
-        print(f"\nProcedimento Realizado: {self.procedimento}")
-        print(f"Medicamentos Prescritos: {self.medicamentos} | Dosagem: {self.dosagem} | Frequência: {self.frequencia}")
-        print(f"Orientações para o Tutor: {self.orientacoes_tutor}")
-        print(f"Data para Retorno: {self.data_retorno}\n")
+    def __str__(self):
+        return f"Relatório {self.id_relatorio} - {self.animal.nome}"
 
-class RelatorioAcompanhamento:
-    def __init__(self, nome_animal, especie, raca, idade, sexo, peso, nome_tutor, telefone, endereco, email, data_atendimento, tipo_atendimento, vet_responsavel, 
-                 diagnostico, observacoes, procedimento,medicamentos, dosagem, frequencia, orientacoes_tutor, data_retorno, tipo_vacina_exame,data_aplicacao_exame, 
-                 data_prevista_proximo, resultados_exames):
-        self.nome_animal = nome_animal
-        self.especie = especie
-        self.raca = raca
-        self.idade = idade
-        self.sexo = sexo
-        self.peso = peso
-        self.nome_tutor = nome_tutor
-        self.telefone = telefone
-        self.endereco = endereco
-        self.email = email
-        self.data_atendimento = data_atendimento
-        self.tipo_atendimento = tipo_atendimento
-        self.vet_responsavel = vet_responsavel
-        self.diagnostico = diagnostico
-        self.observacoes = observacoes
-        self.procedimento = procedimento
-        self.medicamentos = medicamentos
-        self.dosagem = dosagem
-        self.frequencia = frequencia
-        self.orientacoes_tutor = orientacoes_tutor
-        self.data_retorno = data_retorno
-        self.tipo_vacina_exame = tipo_vacina_exame
-        self.data_aplicacao_exame = data_aplicacao_exame
-        self.data_prevista_proximo = data_prevista_proximo
-        self.resultados_exames = resultados_exames
+class RelatorioAcompanhamento(models.Model):
+    id_acompanhamento = models.BigAutoField(primary_key=True)
+    animal = models.ForeignKey(Animal, on_delete=models.CASCADE)
+    especie = models.ForeignKey(Especie, on_delete=models.CASCADE)
+    raca = models.ForeignKey(Raca, on_delete=models.CASCADE)
+    idade = models.IntegerField()
+    sexo = models.CharField(max_length=10, choices=[('M', 'Macho'), ('F', 'Fêmea')])
+    peso = models.FloatField()
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
+    telefone = models.CharField(max_length=15)
+    endereco = models.TextField()
+    email = models.EmailField(max_length=60)
+    data_atendimento = models.DateField()
+    tipo_atendimento = models.CharField(max_length=50)
+    vet_responsavel = models.CharField(max_length=100)
+    diagnostico = models.TextField()
+    observacoes = models.TextField(blank=True, null=True)
+    procedimento = models.TextField()
+    medicamentos = models.TextField()
+    dosagem = models.CharField(max_length=50)
+    frequencia = models.CharField(max_length=50)
+    orientacoes_tutor = models.TextField()
+    data_retorno = models.DateField(blank=True, null=True)
+    tipo_vacina_exame = models.CharField(max_length=50)
+    data_aplicacao_exame = models.DateField()
+    data_prevista_proximo = models.DateField(blank=True, null=True)
+    resultados_exames = models.TextField(blank=True, null=True)
 
-    def exibir_dados(self):
-        print("\n=== Relatório de Acompanhamento ===")
-        print(f"Animal: {self.nome_animal} | Espécie: {self.especie} | Raça: {self.raca} | Idade: {self.idade} | Sexo: {self.sexo} | Peso: {self.peso}kg")
-        print(f"Tutor: {self.nome_tutor} | Contato: {self.telefone} | Endereço: {self.endereco} | E-mail: {self.email}")
-        print(f"\nData do Atendimento: {self.data_atendimento} | Tipo: {self.tipo_atendimento} | Veterinário: {self.vet_responsavel}")
-        print(f"Diagnóstico: {self.diagnostico}")
-        print(f"Observações: {self.observacoes}")
-        print(f"\nProcedimento Realizado: {self.procedimento}")
-        print(f"Medicamentos Prescritos: {self.medicamentos} | Dosagem: {self.dosagem} | Frequência: {self.frequencia}")
-        print(f"Orientações para o Tutor: {self.orientacoes_tutor}")
-        print(f"Data para Retorno: {self.data_retorno}")
-        print(f"\nVacina/Exame: {self.tipo_vacina_exame}")
-        print(f"Data da Aplicação/Exame: {self.data_aplicacao_exame} | Próxima: {self.data_prevista_proximo}")
-        print(f"Resultados de Exames: {self.resultados_exames}\n")
+    class Meta:
+        verbose_name = "Relatório de Acompanhamento"
+        verbose_name_plural = "Relatórios de Acompanhamento"
+
+    def __str__(self):
+        return f"Acompanhamento {self.id_acompanhamento} - {self.animal.nome}"
+    
+
+
+class AgendamentoConsulta(models.Model):
+    TIPO_AGENDAMENTO = [
+        ('consulta', 'Consulta'),
+        ('castracao', 'Castração'),
+        ('emergencia', 'Emergência'),
+    ]
+
+    tutor = models.ForeignKey('Tutor', on_delete=models.CASCADE, related_name='agendamentos')
+    animais = models.ManyToManyField('Animal', related_name='consultas')
+    veterinario = models.ForeignKey('Veterinario', on_delete=models.SET_NULL, null=True, related_name='agendamentos')
+    tipo = models.CharField(max_length=10, choices=TIPO_AGENDAMENTO, default='consulta')
+    data = models.DateField()
+    hora = models.TimeField()
+
+    def __str__(self):
+        return f"Agendamento #{self.id} - {self.tutor.nome} em {self.data} às {self.hora}"
+
+    @staticmethod
+    def criar_agendamento(tutor_id, animais_ids, veterinario_id, data, hora, tipo):
+        from .models import Tutor, Animal, Veterinario, AgendamentoConsulta  # Evita problemas de import circular
+
+        # Validar tutor
+        try:
+            tutor = Tutor.objects.get(id=tutor_id)
+        except Tutor.DoesNotExist:
+            raise ValidationError("Tutor não encontrado.")
+
+        # Validar animais
+        animais = Animal.objects.filter(id__in=animais_ids)
+        if animais.count() != len(animais_ids):
+            raise ValidationError("Alguns IDs de animais não foram encontrados.")
+
+        # Validar veterinário
+        try:
+            veterinario = Veterinario.objects.get(id=veterinario_id)
+        except Veterinario.DoesNotExist:
+            raise ValidationError("Veterinário não encontrado.")
+
+        # Parse data e hora
+        agendamento_data = datetime.strptime(data, "%Y-%m-%d").date()
+        agendamento_hora = datetime.strptime(hora, "%H:%M:%S").time()
+
+        # Validação de regras por tipo
+        if tipo == 'castracao':
+            if agendamento_data.weekday() in [1, 3]:  # terça ou quinta
+                raise ValidationError("Castrações não são permitidas às terças e quintas.")
+            if not time(8, 0) <= agendamento_hora <= time(12, 0):
+                raise ValidationError("Castrações só são permitidas das 08:00 às 12:00.")
+
+        elif tipo == 'consulta':
+            if agendamento_data.weekday() in [1, 3]:  # terça ou quinta
+                if not time(13, 0) <= agendamento_hora <= time(18, 0):
+                    raise ValidationError("Consultas às terças e quintas só são permitidas das 13:00 às 18:00.")
+
+        # Verificar conflitos de horário (exceto emergência)
+        if tipo != 'emergencia':
+            conflito = AgendamentoConsulta.objects.filter(
+                veterinario=veterinario,
+                data=agendamento_data,
+                hora=agendamento_hora
+            ).exists()
+            if conflito:
+                raise ValidationError("O veterinário já tem outro agendamento nesse horário.")
+
+        # Criar agendamento
+        agendamento = AgendamentoConsulta.objects.create(
+            tutor=tutor,
+            veterinario=veterinario,
+            tipo=tipo,
+            data=agendamento_data,
+            hora=agendamento_hora
+        )
+        agendamento.animais.set(animais)
+        agendamento.save()
+        return agendamento
