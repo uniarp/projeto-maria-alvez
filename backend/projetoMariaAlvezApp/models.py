@@ -1,9 +1,88 @@
 from validate_docbr import CPF
 from django.core.exceptions import ValidationError
-from django.core.validators import RegexValidator, MinValueValidator
+from django.core.validators import RegexValidator, MinValueValidator, EmailValidator
 from django.db import models
+from django.urls import reverse
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime, time
+
+
+def validar_cpf(valor):
+    cpf = CPF()
+    if not cpf.validate(valor.replace(".", "").replace("-", "")):
+        raise ValidationError("O CPF informado é inválido.")
+
+class Veterinario(models.Model):
+    nome = models.CharField(
+        max_length=100,
+        verbose_name="Nome completo",
+        help_text="Digite o nome completo do veterinário."
+    )
+    cpf = models.CharField(
+        max_length=14,
+        unique=True,
+        validators=[
+            RegexValidator(r'^\d{3}\.\d{3}\.\d{3}-\d{2}$', 'CPF deve estar no formato XXX.XXX.XXX-XX.'),
+            validar_cpf
+        ],
+        verbose_name="CPF",
+        help_text="Formato: XXX.XXX.XXX-XX"
+    )
+    telefone = models.CharField(
+        max_length=15,
+        verbose_name="Telefone",
+        help_text="Digite o telefone de contato. Ex: (99) 99999-9999",
+        validators=[
+            RegexValidator(r'^\(\d{2}\) \d{4,5}-\d{4}$', 'Telefone deve estar no formato (99) 99999-9999.')
+        ]
+    )
+    email = models.EmailField(
+        unique=True,
+        verbose_name="E-mail",
+        help_text="Digite um e-mail válido para contato.",
+        validators=[EmailValidator()]
+    )
+    especialidade = models.CharField(
+        max_length=100,
+        verbose_name="Especialidade",
+        help_text="Área de atuação do veterinário."
+    )
+    crmv = models.CharField(
+        max_length=20,
+        unique=True,
+        verbose_name="CRMV",
+        help_text="Registro profissional do veterinário (Ex: 12345-PR).",
+        validators=[
+            RegexValidator(r'^\d{4,6}-[A-Z]{2}$', 'CRMV deve estar no formato 12345-PR.')
+        ]
+    )
+    data_admissao = models.DateField(
+        verbose_name="Data de Admissão",
+        help_text="Data de início das atividades na clínica."
+    )
+
+    class Meta:
+        verbose_name = "Veterinário"
+        verbose_name_plural = "Veterinários"
+        ordering = ['nome']
+        indexes = [
+            models.Index(fields=['cpf']),
+            models.Index(fields=['email']),
+            models.Index(fields=['crmv']),
+        ]
+
+    def __str__(self):
+        return f"{self.nome} - CRMV: {self.crmv}"
+
+    def get_absolute_url(self):
+        return reverse('veterinario_detail', kwargs={'pk': self.pk})
+
+    def clean(self):
+        # Limpa os dados para padronizar antes de salvar
+        self.cpf = self.cpf.replace(".", "").replace("-", "")
+        self.telefone = self.telefone.replace("(", "").replace(")", "").replace(" ", "").replace("-", "")
+        self.crmv = self.crmv.upper()
+
 
 class Tutor(models.Model):
     id_tutor = models.BigAutoField(primary_key=True, verbose_name="ID do Tutor")
@@ -487,3 +566,81 @@ class RelatorioAcompanhamento(models.Model):
 
     def __str__(self):
         return f"Acompanhamento {self.id_acompanhamento} - {self.animal.nome}"
+    
+
+
+class AgendamentoConsulta(models.Model):
+    TIPO_AGENDAMENTO = [
+        ('consulta', 'Consulta'),
+        ('castracao', 'Castração'),
+        ('emergencia', 'Emergência'),
+    ]
+
+    tutor = models.ForeignKey('Tutor', on_delete=models.CASCADE, related_name='agendamentos')
+    animais = models.ManyToManyField('Animal', related_name='consultas')
+    veterinario = models.ForeignKey('Veterinario', on_delete=models.SET_NULL, null=True, related_name='agendamentos')
+    tipo = models.CharField(max_length=10, choices=TIPO_AGENDAMENTO, default='consulta')
+    data = models.DateField()
+    hora = models.TimeField()
+
+    def __str__(self):
+        return f"Agendamento #{self.id} - {self.tutor.nome} em {self.data} às {self.hora}"
+
+    @staticmethod
+    def criar_agendamento(tutor_id, animais_ids, veterinario_id, data, hora, tipo):
+        from .models import Tutor, Animal, Veterinario, AgendamentoConsulta  # Evita problemas de import circular
+
+        # Validar tutor
+        try:
+            tutor = Tutor.objects.get(id=tutor_id)
+        except Tutor.DoesNotExist:
+            raise ValidationError("Tutor não encontrado.")
+
+        # Validar animais
+        animais = Animal.objects.filter(id__in=animais_ids)
+        if animais.count() != len(animais_ids):
+            raise ValidationError("Alguns IDs de animais não foram encontrados.")
+
+        # Validar veterinário
+        try:
+            veterinario = Veterinario.objects.get(id=veterinario_id)
+        except Veterinario.DoesNotExist:
+            raise ValidationError("Veterinário não encontrado.")
+
+        # Parse data e hora
+        agendamento_data = datetime.strptime(data, "%Y-%m-%d").date()
+        agendamento_hora = datetime.strptime(hora, "%H:%M:%S").time()
+
+        # Validação de regras por tipo
+        if tipo == 'castracao':
+            if agendamento_data.weekday() in [1, 3]:  # terça ou quinta
+                raise ValidationError("Castrações não são permitidas às terças e quintas.")
+            if not time(8, 0) <= agendamento_hora <= time(12, 0):
+                raise ValidationError("Castrações só são permitidas das 08:00 às 12:00.")
+
+        elif tipo == 'consulta':
+            if agendamento_data.weekday() in [1, 3]:  # terça ou quinta
+                if not time(13, 0) <= agendamento_hora <= time(18, 0):
+                    raise ValidationError("Consultas às terças e quintas só são permitidas das 13:00 às 18:00.")
+
+        # Verificar conflitos de horário (exceto emergência)
+        if tipo != 'emergencia':
+            conflito = AgendamentoConsulta.objects.filter(
+                veterinario=veterinario,
+                data=agendamento_data,
+                hora=agendamento_hora
+            ).exists()
+            if conflito:
+                raise ValidationError("O veterinário já tem outro agendamento nesse horário.")
+
+        # Criar agendamento
+        agendamento = AgendamentoConsulta.objects.create(
+            tutor=tutor,
+            veterinario=veterinario,
+            tipo=tipo,
+            data=agendamento_data,
+            hora=agendamento_hora
+        )
+        agendamento.animais.set(animais)
+        agendamento.save()
+        return agendamento
