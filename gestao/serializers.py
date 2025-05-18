@@ -1,32 +1,107 @@
 from rest_framework import serializers
-from .models import Tutor, Animal, RelatorioAtendimento, FilaCastracao, CandidatoAdocao, Funcionario
+from .models import (
+    Tutor, Animal, Especie, Raca, Vacina, Medicamento, Exame, VacinaVermifugos,
+    AnimalCastracao, ListaCastracao, ExameVeterinario, ListaExames, Estoque,
+    Cirurgia, Internacao, ConsultaClinica, RelatorioAtendimento, RelatorioAcompanhamento,
+    Prestadores, Produto
+)
 
 class TutorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tutor
-        fields = ['id', 'nome', 'cpf', 'rg', 'endereco', 'email', 'telefone', 'cadastro_unico']
+        fields = '__all__'
 
 class AnimalSerializer(serializers.ModelSerializer):
     class Meta:
         model = Animal
-        fields = ['id', 'nome', 'raca', 'cor', 'sexo', 'deficiencia', 'tutor', 'castrado', 'disponivel_adocao']
+        fields = '__all__'
+
+class EspecieSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Especie
+        fields = '__all__'
+
+class RacaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Raca
+        fields = '__all__'
+
+class VacinaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Vacina
+        fields = '__all__'
+
+class MedicamentoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Medicamento
+        fields = '__all__'
+
+class ExameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Exame
+        fields = '__all__'
+
+class VacinaVermifugosSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VacinaVermifugos
+        fields = '__all__'
+
+class AnimalCastracaoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AnimalCastracao
+        fields = '__all__'
+
+class ListaCastracaoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ListaCastracao
+        fields = '__all__'
+
+class ExameVeterinarioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExameVeterinario
+        fields = '__all__'
+
+class ListaExamesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ListaExames
+        fields = '__all__'
+
+class EstoqueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Estoque
+        fields = '__all__'
+
+class CirurgiaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cirurgia
+        fields = '__all__'
+
+class InternacaoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Internacao
+        fields = '__all__'
+
+class ConsultaClinicaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConsultaClinica
+        fields = '__all__'
 
 class RelatorioAtendimentoSerializer(serializers.ModelSerializer):
     class Meta:
         model = RelatorioAtendimento
-        fields = ['id', 'animal', 'tutor', 'data_atendimento', 'diagnostico_inicial', 'procedimento', 'observacoes']
+        fields = '__all__'
 
-class FilaCastracaoSerializer(serializers.ModelSerializer):
+class RelatorioAcompanhamentoSerializer(serializers.ModelSerializer):
     class Meta:
-        model = FilaCastracao
-        fields = ['id', 'animal', 'posicao', 'status']
+        model = RelatorioAcompanhamento
+        fields = '__all__'
 
-class CandidatoAdocaoSerializer(serializers.ModelSerializer):
+class PrestadoresSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CandidatoAdocao
-        fields = ['id', 'tutor', 'animal', 'data_candidatura', 'status']
+        model = Prestadores
+        fields = '__all__'
 
-class FuncionarioSerializer(serializers.ModelSerializer):
+class ProdutoSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Funcionario
-        fields = ['id', 'usuario', 'nome', 'cpf', 'rg', 'endereco', 'email', 'telefone', 'cargo']
+        model = Produto
+        fields = '__all__'

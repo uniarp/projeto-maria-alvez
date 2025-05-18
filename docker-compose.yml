@@ -27,6 +27,8 @@ services:
       - DATABASE_URL=postgresql://vet_user:vet_password@db:5432/clinica_vet
     depends_on:
       - db
+    env_file:
+      - .env
 
 volumes:
   postgres_data:

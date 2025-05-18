@@ -1,103 +1,91 @@
-from validate_docbr import CPF
+import re
+from django.db import models
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator, MinValueValidator
-from django.db import models
 from django.utils import timezone
-from django.contrib.auth.models import User
-from datetime import timedelta, date
+from validate_docbr import CPF
+from dateutil.relativedelta import relativedelta
+
+def valida_cpf(cpf):
+    validador = CPF()
+    return validador.validate(cpf)
+
+def get_current_date():
+    return timezone.now().date()
 
 class Tutor(models.Model):
-    id_tutor = models.BigAutoField(primary_key=True, verbose_name="ID do Tutor")
-    nome = models.CharField(max_length=80, verbose_name="Nome")
-    sobrenome = models.CharField(max_length=80, verbose_name="Sobrenome")
     cpf = models.CharField(
         max_length=14,
-        verbose_name="CPF",
         unique=True,
-        validators=[RegexValidator(
-            r'^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$',
-            'Digite um CPF válido no formato: 123.456.789-00.'
-        )]
+        validators=[RegexValidator(r'^\d{3}\.\d{3}\.\d{3}-\d{2}$', 'Digite um CPF no formato 123.456.789-00.')]
     )
-    rg = models.CharField(
-        max_length=9,
-        verbose_name="RG",
-        blank=True,
-        validators=[RegexValidator(
-            r'^\d{7,9}$',
-            'Digite um RG válido com 7 a 9 dígitos.'
-        )]
-    )
-    rua = models.CharField(max_length=80, verbose_name="Rua")
-    bairro = models.CharField(max_length=80, verbose_name="Bairro")
-    numero = models.IntegerField(verbose_name="Número", validators=[MinValueValidator(1)])
-    cidade = models.CharField(max_length=80, verbose_name="Cidade")
-    estado = models.CharField(max_length=2, verbose_name="Estado")
+    nome = models.CharField(max_length=50)
+    sobrenome = models.CharField(max_length=50)
+    data_nascimento = models.DateField()
+    email = models.EmailField(max_length=100, blank=True)
     cep = models.CharField(
         max_length=9,
-        verbose_name="CEP",
-        validators=[RegexValidator(
-            r'^\d{5}[-.\s]?\d{3}$',
-            'Digite um CEP válido no formato: 12345-678.'
-        )]
+        validators=[RegexValidator(r'^\d{5}-\d{3}$', 'Digite um CEP no formato 12345-678.')]
     )
-    email = models.EmailField(verbose_name="E-mail", blank=True)
+    endereco = models.CharField(max_length=255)
     telefone = models.CharField(
         max_length=15,
-        verbose_name="Telefone",
-        blank=True,
-        validators=[RegexValidator(
-            r'^\+?55?\s?\(?[1-9]{2}\)?\s?\d{4,5}-?\d{4}$',
-            'Digite um número de telefone válido no formato: +55 (DD) XXXXX-XXXX.'
-        )]
+        validators=[RegexValidator(r'^\(\d{2}\)\s\d{4,5}-\d{4}$', 'Digite um telefone no formato (11) 91234-5678.')]
     )
-    cadastro_unico = models.BooleanField(default=False, verbose_name="Cadastro Único")
-    data_cadastro = models.DateField(
-        verbose_name="Data de Cadastro",
-        default=timezone.now,
-        help_text="Data em que o tutor foi cadastrado"
-    )
+    estado = models.CharField(max_length=2, blank=True, help_text="Sigla do estado (ex.: SP)")
+    cidade = models.CharField(max_length=100, blank=True)
+    data_nascimento = models.DateField()
+
+    def clean(self):
+        super().clean()
+        if self.cpf:
+            self.cpf = re.sub(r'\D', '', self.cpf)
+            if len(self.cpf) != 11:
+                raise ValidationError({'cpf': 'O CPF deve conter 11 dígitos.'})
+            if not valida_cpf(self.cpf):
+                raise ValidationError({'cpf': 'O CPF informado é inválido.'})
+        if self.cep:
+            self.cep = re.sub(r'\D', '', self.cep)
+            if len(self.cep) != 8:
+                raise ValidationError({'cep': 'O CEP deve conter 8 dígitos.'})
+        if self.telefone:
+            self.telefone = re.sub(r'\D', '', self.telefone)
+            if len(self.telefone) < 10 or len(self.telefone) > 11:
+                raise ValidationError({'telefone': 'O telefone deve conter 10 ou 11 dígitos.'})
+        if self.data_nascimento:
+            hoje = timezone.now().date()
+            idade = relativedelta(hoje, self.data_nascimento).years
+            if idade < 18:
+                raise ValidationError({'data_nascimento': 'O tutor deve ter pelo menos 18 anos.'})
+        if self.estado and len(self.estado) != 2:
+            raise ValidationError({'estado': 'O estado deve ter exatamente 2 caracteres (ex.: SP).'})
+    def nome_completo(self):
+        return f"{self.nome} {self.sobrenome}"
+
+    def __str__(self):
+        return self.nome_completo()
 
     class Meta:
-        verbose_name = "Tutor"
-        verbose_name_plural = "Tutores"
         indexes = [
             models.Index(fields=['cpf'], name='tutor_cpf_idx'),
             models.Index(fields=['nome', 'sobrenome'], name='tutor_nome_idx'),
         ]
 
-    def __str__(self):
-        return f"{self.nome} {self.sobrenome} - {self.cpf}"
-
-    def clean(self):
-        super().clean()
-        cpf_validator = CPF()
-        cleaned_cpf = self.cpf.replace('.', '').replace('-', '')
-        if not cpf_validator.validate(cleaned_cpf):
-            raise ValidationError("O CPF informado é inválido.")
-        if self.data_cadastro > timezone.now().date():
-            raise ValidationError("A data de cadastro não pode ser no futuro.")
-        self.cpf = cleaned_cpf
-
-    @property
-    def nome_completo(self):
-        return f"{self.nome} {self.sobrenoha}"
-
-    @property
-    def endereco_completo(self):
-        return f"{self.rua}, {self.numero}, {self.bairro}, {self.cidade} - {self.estado}, {self.cep}"
-
 class Especie(models.Model):
     id_especie = models.BigAutoField(primary_key=True)
-    nome = models.CharField(max_length=80, unique=True)
+    nome = models.CharField(max_length=80)
 
     class Meta:
         verbose_name = "Espécie"
         verbose_name_plural = "Espécies"
-        indexes = [models.Index(fields=['nome'], name='especie_nome_idx')]
 
     def __str__(self):
         return self.nome
+
+    def clean(self):
+        super().clean()
+        if not self.nome.strip():
+            raise ValidationError({'nome': 'O nome da espécie não pode estar vazio.'})
 
 class Raca(models.Model):
     id_raca = models.BigAutoField(primary_key=True)
@@ -107,102 +95,73 @@ class Raca(models.Model):
     class Meta:
         verbose_name = "Raça"
         verbose_name_plural = "Raças"
-        indexes = [models.Index(fields=['nome', 'especie'], name='raca_nome_idx')]
-        unique_together = ['nome', 'especie']
-
-    def __str__(self):
-        return f"{self.nome} ({self.especie.nome})"
-
-class Animal(models.Model):
-    id_animal = models.IntegerField(unique=True, null=True, blank=True)  # Temporary null=True
-    nome = models.CharField(max_length=100, verbose_name="Nome")
-    especie = models.ForeignKey(
-        Especie,
-        on_delete=models.CASCADE,
-        verbose_name="Espécie",
-        related_name="animais",
-        default=1
-    )
-    raca = models.ForeignKey(
-        Raca,
-        on_delete=models.CASCADE,
-        verbose_name="Raça",
-        related_name="animais",
-        null=True,
-        blank=True
-    )
-    cor = models.CharField(max_length=50, verbose_name="Cor")
-    sexo = models.CharField(
-        max_length=20,
-        choices=[('M', 'Macho'), ('F', 'Fêmea')],
-        verbose_name="Sexo"
-    )
-    idade = models.IntegerField(verbose_name="Idade", default=0)
-    peso = models.FloatField(verbose_name="Peso")
-    tutor = models.ForeignKey(
-        Tutor,
-        on_delete=models.CASCADE,
-        verbose_name="Tutor",
-        related_name="animais"
-    )
-    castrado = models.BooleanField(default=False, verbose_name="Castrado")
-    disponivel_adocao = models.BooleanField(default=False, verbose_name="Disponível para adoção")
-    data_cadastro = models.DateField(auto_now_add=True, verbose_name="Data de Cadastro")
-    deficiencia = models.TextField(null=True, blank=True, verbose_name="Deficiência")
-
-    class Meta:
-        verbose_name = "Animal"
-        verbose_name_plural = "Animais"
-
-    def __str__(self):
-        return self.nome
-
-class Funcionario(models.Model):
-    id_funcionario = models.BigAutoField(primary_key=True)
-    usuario = models.OneToOneField(User, on_delete=models.CASCADE)
-    nome = models.CharField(max_length=255)
-    cpf = models.CharField(
-        max_length=14,
-        unique=True,
-        validators=[RegexValidator(
-            r'^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$',
-            'Digite um CPF válido no formato: 123.456.789-00.'
-        )]
-    )
-    rg = models.CharField(
-        max_length=9,
-        blank=True,
-        validators=[RegexValidator(
-            r'^\d{7,9}$',
-            'Digite um RG válido com 7 a 9 dígitos.'
-        )]
-    )
-    endereco = models.TextField()
-    email = models.EmailField()
-    telefone = models.CharField(
-        max_length=15,
-        validators=[RegexValidator(
-            r'^\+?55?\s?\(?[1-9]{2}\)?\s?\d{4,5}-?\d{4}$',
-            'Digite um número de telefone válido no formato: +55 (DD) XXXXX-XXXX.'
-        )]
-    )
-    cargo = models.CharField(max_length=100)
-
-    class Meta:
-        verbose_name = "Funcionário"
-        verbose_name_plural = "Funcionários"
-        indexes = [models.Index(fields=['cpf'], name='funcionario_cpf_idx')]
 
     def __str__(self):
         return self.nome
 
     def clean(self):
         super().clean()
-        cpf_validator = CPF()
-        cleaned_cpf = self.cpf.replace('.', '').replace('-', '')
-        if not cpf_validator.validate(cleaned_cpf):
-            raise ValidationError("O CPF informado é inválido.")
-        self.cpf = cleaned_cpf
+        if not self.nome.strip():
+            raise ValidationError({'nome': 'O nome da raça não pode estar vazio.'})
+
+class Animal(models.Model):
+    id_animal = models.BigAutoField(primary_key=True, verbose_name="ID do Animal")
+    nome = models.CharField(
+        max_length=80,
+        verbose_name="Nome",
+        blank=False,
+        help_text="Nome do animal (máximo 80 caracteres)"
+    )
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE, verbose_name="Tutor", related_name="animais")
+    raca = models.ForeignKey(Raca, on_delete=models.CASCADE, verbose_name="Raça", related_name="animais")
+    idade = models.IntegerField(
+        verbose_name="Idade",
+        validators=[MinValueValidator(0, "A idade deve ser maior ou igual a 0")]
+    )
+    especie = models.ForeignKey(Especie, on_delete=models.CASCADE, verbose_name="Espécie", related_name="animais")
+    data_cadastro = models.DateField(
+        verbose_name="Data de Cadastro",
+        default=get_current_date,
+        help_text="Data em que o animal foi cadastrado"
+    )
+
+    class Meta:
+        verbose_name = "Animal"
+        verbose_name_plural = "Animais"
+        indexes = [
+            models.Index(fields=['nome'], name='animal_nome_idx'),
+            models.Index(fields=['tutor'], name='animal_tutor_idx'),
+            models.Index(fields=['especie'], name='animal_especie_idx'),
+        ]
+
+    def __str__(self):
+        return self.nome
+
+    def clean(self):
+        super().clean()
+        if not self.nome.strip():
+            raise ValidationError({'nome': 'O nome do animal não pode estar vazio.'})
+        if self.idade < 0:
+            raise ValidationError({'idade': 'A idade do animal não pode ser negativa.'})
+        if not self.tutor:
+            raise ValidationError({'tutor': 'Um animal deve ter um tutor associado.'})
+        if not self.raca or not self.especie:
+            raise ValidationError({'raca': 'Raça e espécie são obrigatórios.', 'especie': 'Raça e espécie são obrigatórios.'})
+        if self.data_cadastro > timezone.now().date():
+            raise ValidationError({'data_cadastro': 'A data de cadastro não pode ser no futuro.'})
+
+    @property
+    def idade_em_meses(self):
+        hoje = timezone.now().date()
+        delta = relativedelta(hoje, self.data_cadastro)
+        return max(0, delta.years * 12 + delta.months)
+
+    def eh_valido(self):
+        return self.idade >= 0 and self.tutor is not None
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+        return reverse('animal-detail', kwargs={'pk': self.pk})
 
 class Vacina(models.Model):
     id_vacina = models.BigAutoField(primary_key=True)
@@ -214,22 +173,23 @@ class Vacina(models.Model):
     fabricante = models.CharField(max_length=100)
     lote = models.CharField(max_length=50)
     validade = models.DateField()
-    custo = models.DecimalField(max_digits=10, decimal_places=2)
+    custo = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     recomendacoes = models.TextField(blank=True, null=True)
     data_registro = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         verbose_name = "Vacina"
         verbose_name_plural = "Vacinas"
-        indexes = [models.Index(fields=['nome', 'especie'], name='vacina_nome_idx')]
 
     def __str__(self):
-        return f"{self.nome} ({self.especie.nome})"
+        return self.nome
 
     def clean(self):
         super().clean()
+        if not self.nome.strip():
+            raise ValidationError({'nome': 'O nome da vacina não pode estar vazio.'})
         if self.validade < timezone.now().date():
-            raise ValidationError("A validade da vacina não pode ser no passado.")
+            raise ValidationError({'validade': 'A validade não pode ser no passado.'})
 
 class Medicamento(models.Model):
     id_medicamento = models.BigAutoField(primary_key=True)
@@ -251,24 +211,23 @@ class Medicamento(models.Model):
     )
     fabricante = models.CharField(max_length=100)
     estoque = models.IntegerField(validators=[MinValueValidator(0)])
-    preco = models.DecimalField(max_digits=10, decimal_places=2)
+    preco = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     validade = models.DateField()
     data_registro = models.DateTimeField(default=timezone.now)
 
     class Meta:
         verbose_name = "Medicamento"
         verbose_name_plural = "Medicamentos"
-        indexes = [models.Index(fields=['nome'], name='medicamento_nome_idx')]
 
     def __str__(self):
         return self.nome
 
     def clean(self):
         super().clean()
+        if not self.nome.strip():
+            raise ValidationError({'nome': 'O nome do medicamento não pode estar vazio.'})
         if self.validade < timezone.now().date():
-            raise ValidationError("A validade do medicamento não pode ser no passado.")
-        if self.preco < 0:
-            raise ValidationError("O preço não pode ser negativo.")
+            raise ValidationError({'validade': 'A validade não pode ser no passado.'})
 
 class Exame(models.Model):
     id_exame = models.BigAutoField(primary_key=True)
@@ -280,7 +239,7 @@ class Exame(models.Model):
         ('Clínico', 'Clínico'),
     ])
     especie = models.ForeignKey(Especie, on_delete=models.CASCADE, related_name="exames")
-    preco = models.DecimalField(max_digits=10, decimal_places=2)
+    preco = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     equipamento = models.CharField(max_length=100, blank=True, null=True)
     duracao = models.DurationField(help_text="Duração média do exame (hh:mm:ss)")
     recomendacoes_pre = models.TextField(blank=True, null=True)
@@ -289,17 +248,14 @@ class Exame(models.Model):
     class Meta:
         verbose_name = "Exame"
         verbose_name_plural = "Exames"
-        indexes = [models.Index(fields=['nome', 'especie'], name='exame_nome_idx')]
 
     def __str__(self):
-        return f"{self.nome} ({self.especie.nome})"
+        return self.nome
 
     def clean(self):
         super().clean()
-        if self.preco < 0:
-            raise ValidationError("O preço não pode ser negativo.")
-        if self.duracao <= timedelta(0):
-            raise ValidationError("A duração deve ser maior que zero.")
+        if not self.nome.strip():
+            raise ValidationError({'nome': 'O nome do exame não pode estar vazio.'})
 
 class Prestadores(models.Model):
     id_prestador = models.BigAutoField(primary_key=True)
@@ -308,18 +264,19 @@ class Prestadores(models.Model):
     class Meta:
         verbose_name = "Prestador"
         verbose_name_plural = "Prestadores"
-        indexes = [models.Index(fields=['nome'], name='prestador_nome_idx')]
 
     def __str__(self):
         return self.nome
 
+    def clean(self):
+        super().clean()
+        if not self.nome.strip():
+            raise ValidationError({'nome': 'O nome do prestador não pode estar vazio.'})
+
 class VacinaVermifugos(models.Model):
     id_vacina_vermifugo = models.BigAutoField(primary_key=True)
-    animal = models.ForeignKey(Animal, on_delete=models.CASCADE, verbose_name="Animal")
-    tipo = models.CharField(max_length=50, choices=[
-        ('Vacina', 'Vacina'),
-        ('Vermífugo', 'Vermífugo'),
-    ])
+    animal = models.ForeignKey(Animal, on_delete=models.CASCADE, related_name="vacinas_vermifugos")
+    tipo = models.CharField(max_length=50)
     data_aplicacao = models.DateField()
     data_proximo_reforco = models.DateField(blank=True, null=True)
     observacoes = models.TextField(blank=True, null=True)
@@ -327,103 +284,68 @@ class VacinaVermifugos(models.Model):
     class Meta:
         verbose_name = "Vacina/Vermífugo"
         verbose_name_plural = "Vacinas/Vermífugos"
-        indexes = [models.Index(fields=['animal', 'tipo'], name='vacina_vermifugo_idx')]
 
     def __str__(self):
         return f"{self.animal.nome} - {self.tipo}"
 
     def clean(self):
         super().clean()
+        if not self.tipo.strip():
+            raise ValidationError({'tipo': 'O tipo não pode estar vazio.'})
         if self.data_aplicacao > timezone.now().date():
-            raise ValidationError("A data de aplicação não pode ser no futuro.")
+            raise ValidationError({'data_aplicacao': 'A data de aplicação não pode ser no futuro.'})
         if self.data_proximo_reforco and self.data_proximo_reforco < self.data_aplicacao:
-            raise ValidationError("A data do próximo reforço não pode ser anterior à data de aplicação.")
+            raise ValidationError({'data_proximo_reforco': 'A data do próximo reforço não pode ser anterior à data de aplicação.'})
 
     def calcular_proximo_reforco(self):
         if self.data_aplicacao:
-            intervalo = 30 if self.tipo == 'Vermífugo' else 365
-            self.data_proximo_reforco = self.data_aplicacao + timedelta(days=intervalo)
+            self.data_proximo_reforco = self.data_aplicacao + relativedelta(months=1)
             self.save()
 
-class FilaCastracao(models.Model):
-    STATUS_CHOICES = [
-        ('AGUARDANDO', 'Aguardando'),
-        ('REALIZADO', 'Realizado'),
-        ('CANCELADO', 'Cancelado'),
-    ]
-
+class AnimalCastracao(models.Model):
     id_castracao = models.BigAutoField(primary_key=True)
-    animal = models.ForeignKey(Animal, on_delete=models.CASCADE, verbose_name="Animal", related_name="filas_castracao")
-    posicao = models.IntegerField(validators=[MinValueValidator(1)])
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='AGUARDANDO')
-    data_cadastro = models.DateField(default=timezone.now)
+    animal = models.ForeignKey(Animal, on_delete=models.CASCADE, related_name="castracoes")
+    posicao_fila = models.IntegerField(validators=[MinValueValidator(1)])
+    data_cadastro = models.DateField(default=get_current_date)
+    status_castracao = models.CharField(max_length=20, choices=[('Pendente', 'Pendente'), ('Realizada', 'Realizada')])
     data_prevista_castracao = models.DateField(blank=True, null=True)
 
     class Meta:
-        verbose_name = "Fila de Castração"
-        verbose_name_plural = "Filas de Castração"
-        indexes = [models.Index(fields=['animal', 'status'], name='castracao_idx')]
+        verbose_name = "Animal para Castração"
+        verbose_name_plural = "Animais para Castração"
+
+    def __str__(self):
+        return f"{self.animal.nome} - {self.status_castracao}"
 
     def clean(self):
         super().clean()
         if self.data_prevista_castracao and self.data_cadastro:
             if self.data_prevista_castracao < self.data_cadastro:
-                raise ValidationError("A data prevista para castração não pode ser anterior à data de cadastro.")
+                raise ValidationError({'data_prevista_castracao': 'A data prevista para castração não pode ser anterior à data de cadastro.'})
         if self.data_cadastro > timezone.now().date():
-            raise ValidationError("A data de cadastro não pode ser no futuro.")
-        if self.status == 'REALIZADO':
-            self.animal.castrado = True
-            self.animal.save()
-
-    def __str__(self):
-        return f"Fila de castração para {self.animal.nome}"
+            raise ValidationError({'data_cadastro': 'A data de cadastro não pode ser no futuro.'})
 
 class ListaCastracao(models.Model):
     id_lista = models.BigAutoField(primary_key=True)
-    animais = models.ManyToManyField(FilaCastracao, related_name="listas")
+    animais = models.ManyToManyField(AnimalCastracao, related_name="listas_castracao")
     nome_lista = models.CharField(max_length=100)
 
     class Meta:
         verbose_name = "Lista de Castração"
         verbose_name_plural = "Listas de Castração"
-        indexes = [models.Index(fields=['nome_lista'], name='lista_castracao_idx')]
 
     def __str__(self):
         return self.nome_lista
 
-class CandidatoAdocao(models.Model):
-    STATUS_CHOICES = [
-        ('PENDENTE', 'Pendente'),
-        ('APROVADO', 'Aprovado'),
-        ('REJEITADO', 'Rejeitado'),
-    ]
-
-    id_candidatura = models.BigAutoField(primary_key=True)
-    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE, related_name='candidaturas_adocao')
-    animal = models.ForeignKey(Animal, on_delete=models.CASCADE, related_name='candidaturas_adocao')
-    data_candidatura = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDENTE')
-    observacoes = models.TextField(blank=True, null=True)
-
-    class Meta:
-        verbose_name = "Candidato à Adoção"
-        verbose_name_plural = "Candidatos à Adoção"
-        indexes = [models.Index(fields=['animal', 'status'], name='candidato_adocao_idx')]
-
-    def __str__(self):
-        return f"Candidatura de {self.tutor.nome_completo} para {self.animal.nome}"
-
     def clean(self):
         super().clean()
-        if not self.animal.disponivel_adocao:
-            raise ValidationError("O animal não está disponível para adoção.")
-        if self.animal.tutor is not None and self.status == 'APROVADO':
-            raise ValidationError("Animais com tutor não podem ser adotados.")
+        if not self.nome_lista.strip():
+            raise ValidationError({'nome_lista': 'O nome da lista não pode estar vazio.'})
 
 class ExameVeterinario(models.Model):
     id_exame_vet = models.BigAutoField(primary_key=True)
-    animal = models.ForeignKey(Animal, on_delete=models.CASCADE, related_name='exames_veterinarios')
-    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
+    animal = models.ForeignKey(Animal, on_delete=models.CASCADE, related_name="exames_veterinarios")
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE, related_name="exames_veterinarios")
     tipo_exame = models.CharField(max_length=50)
     data_exame = models.DateField()
     veterinario_solicitante = models.CharField(max_length=100)
@@ -433,30 +355,33 @@ class ExameVeterinario(models.Model):
     class Meta:
         verbose_name = "Exame Veterinário"
         verbose_name_plural = "Exames Veterinários"
-        indexes = [models.Index(fields=['animal', 'data_exame'], name='exame_vet_idx')]
 
     def __str__(self):
         return f"{self.animal.nome} - {self.tipo_exame}"
 
     def clean(self):
         super().clean()
+        if not self.tipo_exame.strip():
+            raise ValidationError({'tipo_exame': 'O tipo de exame não pode estar vazio.'})
         if self.data_exame > timezone.now().date():
-            raise ValidationError("A data do exame não pode ser no futuro.")
-        if self.tutor != self.animal.tutor and self.animal.tutor is not None:
-            raise ValidationError("O tutor do exame deve ser o mesmo do animal.")
+            raise ValidationError({'data_exame': 'A data do exame não pode ser no futuro.'})
 
 class ListaExames(models.Model):
     id_lista_exames = models.BigAutoField(primary_key=True)
-    exames = models.ManyToManyField(ExameVeterinario, related_name="listas")
+    exames = models.ManyToManyField(ExameVeterinario, related_name="listas_exames")
     nome_lista = models.CharField(max_length=100)
 
     class Meta:
         verbose_name = "Lista de Exames"
         verbose_name_plural = "Listas de Exames"
-        indexes = [models.Index(fields=['nome_lista'], name='lista_exames_idx')]
 
     def __str__(self):
         return self.nome_lista
+
+    def clean(self):
+        super().clean()
+        if not self.nome_lista.strip():
+            raise ValidationError({'nome_lista': 'O nome da lista não pode estar vazio.'})
 
 class Produto(models.Model):
     id_produto = models.BigAutoField(primary_key=True)
@@ -470,17 +395,18 @@ class Produto(models.Model):
     class Meta:
         verbose_name = "Produto"
         verbose_name_plural = "Produtos"
-        indexes = [models.Index(fields=['nome'], name='produto_nome_idx')]
 
     def __str__(self):
         return self.nome
 
     def clean(self):
         super().clean()
+        if not self.nome.strip():
+            raise ValidationError({'nome': 'O nome do produto não pode estar vazio.'})
         if self.validade < timezone.now().date():
-            raise ValidationError("A validade do produto não pode ser no passado.")
+            raise ValidationError({'validade': 'A validade não pode ser no passado.'})
         if self.data_ultima_reposicao > timezone.now().date():
-            raise ValidationError("A data da última reposição não pode ser no futuro.")
+            raise ValidationError({'data_ultima_reposicao': 'A data da última reposição não pode ser no futuro.'})
 
     def precisa_repor(self):
         return self.quantidade < self.quantidade_minima
@@ -493,17 +419,19 @@ class Estoque(models.Model):
     class Meta:
         verbose_name = "Estoque"
         verbose_name_plural = "Estoques"
-        indexes = [models.Index(fields=['nome_estoque'], name='estoque_nome_idx')]
 
     def __str__(self):
         return self.nome_estoque
 
+    def clean(self):
+        super().clean()
+        if not self.nome_estoque.strip():
+            raise ValidationError({'nome_estoque': 'O nome do estoque não pode estar vazio.'})
+
 class Cirurgia(models.Model):
     id_cirurgia = models.BigAutoField(primary_key=True)
-    animal = models.ForeignKey(Animal, on_delete=models.CASCADE)
-    especie = models.ForeignKey(Especie, on_delete=models.CASCADE)
-    raca = models.ForeignKey(Raca, on_delete=models.CASCADE)
-    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
+    animal = models.ForeignKey(Animal, on_delete=models.CASCADE, related_name="cirurgias")
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE, related_name="cirurgias")
     tipo_cirurgia = models.CharField(max_length=100)
     veterinario = models.CharField(max_length=100)
     responsavel = models.CharField(max_length=100)
@@ -514,25 +442,20 @@ class Cirurgia(models.Model):
     class Meta:
         verbose_name = "Cirurgia"
         verbose_name_plural = "Cirurgias"
-        indexes = [models.Index(fields=['animal', 'data_cirurgia'], name='cirurgia_idx')]
 
     def __str__(self):
         return f"{self.animal.nome} - {self.tipo_cirurgia}"
 
     def clean(self):
         super().clean()
+        if not self.tipo_cirurgia.strip():
+            raise ValidationError({'tipo_cirurgia': 'O tipo de cirurgia não pode estar vazio.'})
         if self.data_cirurgia > timezone.now().date():
-            raise ValidationError("A data da cirurgia não pode ser no futuro.")
-        if self.tutor != self.animal.tutor and self.animal.tutor is not None:
-            raise ValidationError("O tutor da cirurgia deve ser o mesmo do animal.")
-        if self.especie != self.animal.especie or self.raca != self.animal.raca:
-            raise ValidationError("Espécie e raça devem corresponder ao animal.")
+            raise ValidationError({'data_cirurgia': 'A data da cirurgia não pode ser no futuro.'})
 
 class Internacao(models.Model):
     id_internacao = models.BigAutoField(primary_key=True)
-    animal = models.ForeignKey(Animal, on_delete=models.CASCADE)
-    especie = models.ForeignKey(Especie, on_delete=models.CASCADE)
-    raca = models.ForeignKey(Raca, on_delete=models.CASCADE)
+    animal = models.ForeignKey(Animal, on_delete=models.CASCADE, related_name="internacoes")
     motivo_internacao = models.TextField()
     data_entrada = models.DateField()
     data_saida = models.DateField(blank=True, null=True)
@@ -542,29 +465,26 @@ class Internacao(models.Model):
     class Meta:
         verbose_name = "Internação"
         verbose_name_plural = "Internações"
-        indexes = [models.Index(fields=['animal', 'data_entrada'], name='internacao_idx')]
 
     def __str__(self):
         return f"{self.animal.nome} - {self.motivo_internacao}"
 
     def clean(self):
         super().clean()
+        if not self.motivo_internacao.strip():
+            raise ValidationError({'motivo_internacao': 'O motivo da internação não pode estar vazio.'})
         if self.data_entrada > timezone.now().date():
-            raise ValidationError("A data de entrada não pode ser no futuro.")
+            raise ValidationError({'data_entrada': 'A data de entrada não pode ser no futuro.'})
         if self.data_saida and self.data_saida < self.data_entrada:
-            raise ValidationError("A data de saída não pode ser anterior à data de entrada.")
-        if self.especie != self.animal.especie or self.raca != self.animal.raca:
-            raise ValidationError("Espécie e raça devem corresponder ao animal.")
+            raise ValidationError({'data_saida': 'A data de saída não pode ser anterior à data de entrada.'})
 
 class ConsultaClinica(models.Model):
     id_consulta = models.BigAutoField(primary_key=True)
-    animal = models.ForeignKey(Animal, on_delete=models.CASCADE, related_name='consultas')
-    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
     motivo_atendimento = models.TextField()
-    valor_consulta = models.DecimalField(max_digits=10, decimal_places=2)
-    valor_medicamentos = models.DecimalField(max_digits=10, decimal_places=2)
-    resultado = models.TextField(blank=True)
+    valor_consulta = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
+    valor_medicamentos = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     observacoes = models.TextField(blank=True, null=True)
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE, related_name="consultas")
     data_hora = models.DateTimeField(
         verbose_name="Data e Hora da Consulta",
         default=timezone.now
@@ -573,19 +493,16 @@ class ConsultaClinica(models.Model):
     class Meta:
         verbose_name = "Consulta Clínica"
         verbose_name_plural = "Consultas Clínicas"
-        indexes = [models.Index(fields=['animal', 'data_hora'], name='consulta_idx')]
 
     def __str__(self):
-        return f"Consulta {self.id_consulta} - {self.animal.nome}"
+        return f"Consulta {self.id_consulta} - {self.tutor}"
 
     def clean(self):
         super().clean()
-        if self.valor_consulta < 0 or self.valor_medicamentos < 0:
-            raise ValidationError("Os valores não podem ser negativos.")
+        if not self.motivo_atendimento.strip():
+            raise ValidationError({'motivo_atendimento': 'O motivo do atendimento não pode estar vazio.'})
         if self.data_hora > timezone.now():
-            raise ValidationError("A data e hora da consulta não podem ser no futuro.")
-        if self.tutor != self.animal.tutor and self.animal.tutor is not None:
-            raise ValidationError("O tutor da consulta deve ser o mesmo do animal.")
+            raise ValidationError({'data_hora': 'A data e hora da consulta não podem ser no futuro.'})
 
     def calcular_total(self):
         return self.valor_consulta + self.valor_medicamentos
@@ -598,14 +515,15 @@ class RelatorioAtendimento(models.Model):
     vet_responsavel = models.CharField(max_length=100)
     diagnostico_inicial = models.TextField()
     observacoes = models.TextField(blank=True, null=True)
-    animal = models.ForeignKey(Animal, on_delete=models.CASCADE)
-    especie = models.ForeignKey(Especie, on_delete=models.CASCADE)
-    raca = models.ForeignKey(Raca, on_delete=models.CASCADE)
-    idade = models.IntegerField()
-    sexo = models.CharField(max_length=10, choices=[('M', 'Macho'), ('F', 'Fêmea')])
-    peso = models.FloatField()
-    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
-    telefone_contato = models.CharField(max_length=15)
+    animal = models.ForeignKey(Animal, on_delete=models.CASCADE, related_name="relatorios_atendimento")
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE, related_name="relatorios_atendimento")
+    telefone_contato = models.CharField(
+        max_length=11,
+        validators=[RegexValidator(
+            r'^\d{10,11}$',
+            'Digite um número de telefone válido com 10 ou 11 dígitos.'
+        )]
+    )
     procedimento = models.TextField()
     medicamentos = models.TextField()
     dosagem = models.CharField(max_length=50)
@@ -616,34 +534,32 @@ class RelatorioAtendimento(models.Model):
     class Meta:
         verbose_name = "Relatório de Atendimento"
         verbose_name_plural = "Relatórios de Atendimento"
-        indexes = [models.Index(fields=['animal', 'data_atendimento'], name='relatorio_atendimento_idx')]
 
     def __str__(self):
         return f"Relatório {self.id_relatorio} - {self.animal.nome}"
 
     def clean(self):
         super().clean()
+        if not self.tipo_atendimento.strip():
+            raise ValidationError({'tipo_atendimento': 'O tipo de atendimento não pode estar vazio.'})
+        if not self.diagnostico_inicial.strip():
+            raise ValidationError({'diagnostico_inicial': 'O diagnóstico inicial não pode estar vazio.'})
+        if not self.procedimento.strip():
+            raise ValidationError({'procedimento': 'O procedimento não pode estar vazio.'})
         if self.data_atendimento > timezone.now().date():
-            raise ValidationError("A data de atendimento não pode ser no futuro.")
+            raise ValidationError({'data_atendimento': 'A data de atendimento não pode ser no futuro.'})
         if self.data_retorno and self.data_retorno < self.data_atendimento:
-            raise ValidationError("A data de retorno não pode ser anterior à data de atendimento.")
-        if self.tutor != self.animal.tutor and self.animal.tutor is not None:
-            raise ValidationError("O tutor do relatório deve ser o mesmo do animal.")
-        if self.especie != self.animal.especie or self.raca != self.animal.raca:
-            raise ValidationError("Espécie e raça devem corresponder ao animal.")
+            raise ValidationError({'data_retorno': 'A data de retorno não pode ser anterior à data de atendimento.'})
+        if self.telefone_contato:
+            cleaned_telefone = re.sub(r'\D', '', self.telefone_contato)
+            if len(cleaned_telefone) not in (10, 11):
+                raise ValidationError({'telefone_contato': 'O telefone de contato deve ter 10 ou 11 dígitos.'})
+            self.telefone_contato = cleaned_telefone
 
 class RelatorioAcompanhamento(models.Model):
     id_acompanhamento = models.BigAutoField(primary_key=True)
-    animal = models.ForeignKey(Animal, on_delete=models.CASCADE)
-    especie = models.ForeignKey(Especie, on_delete=models.CASCADE)
-    raca = models.ForeignKey(Raca, on_delete=models.CASCADE)
-    idade = models.IntegerField()
-    sexo = models.CharField(max_length=10, choices=[('M', 'Macho'), ('F', 'Fêmea')])
-    peso = models.FloatField()
-    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
-    telefone = models.CharField(max_length=15)
-    endereco = models.TextField()
-    email = models.EmailField(max_length=60)
+    animal = models.ForeignKey(Animal, on_delete=models.CASCADE, related_name="relatorios_acompanhamento")
+    tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE, related_name="relatorios_acompanhamento")
     data_atendimento = models.DateField()
     tipo_atendimento = models.CharField(max_length=50)
     vet_responsavel = models.CharField(max_length=100)
@@ -663,20 +579,23 @@ class RelatorioAcompanhamento(models.Model):
     class Meta:
         verbose_name = "Relatório de Acompanhamento"
         verbose_name_plural = "Relatórios de Acompanhamento"
-        indexes = [models.Index(fields=['animal', 'data_atendimento'], name='relatorio_acompanhamento_idx')]
 
-    def __str__():
+    def __str__(self):
         return f"Acompanhamento {self.id_acompanhamento} - {self.animal.nome}"
 
     def clean(self):
         super().clean()
+        if not self.tipo_atendimento.strip():
+            raise ValidationError({'tipo_atendimento': 'O tipo de atendimento não pode estar vazio.'})
+        if not self.diagnostico.strip():
+            raise ValidationError({'diagnostico': 'O diagnóstico não pode estar vazio.'})
+        if not self.procedimento.strip():
+            raise ValidationError({'procedimento': 'O procedimento não pode estar vazio.'})
         if self.data_atendimento > timezone.now().date():
-            raise ValidationError("A data de atendimento não pode ser no futuro.")
+            raise ValidationError({'data_atendimento': 'A data de atendimento não pode ser no futuro.'})
         if self.data_aplicacao_exame > timezone.now().date():
-            raise ValidationError("A data de aplicação/exame não pode ser no futuro.")
+            raise ValidationError({'data_aplicacao_exame': 'A data de aplicação/exame não pode ser no futuro.'})
+        if self.data_retorno and self.data_retorno < self.data_atendimento:
+            raise ValidationError({'data_retorno': 'A data de retorno não pode ser anterior à data de atendimento.'})
         if self.data_prevista_proximo and self.data_prevista_proximo < self.data_aplicacao_exame:
-            raise ValidationError("A data prevista para o próximo evento não pode ser anterior à data de aplicação/exame.")
-        if self.tutor != self.animal.tutor and self.animal.tutor is not None:
-            raise ValidationError("O tutor do acompanhamento deve ser o mesmo do animal.")
-        if self.especie != self.animal.especie or self.raca != self.animal.raca:
-            raise ValidationError("Espécie e raça devem corresponder ao animal.")
+            raise ValidationError({'data_prevista_proximo': 'A data prevista para o próximo exame não pode ser anterior à data de aplicação.'})
