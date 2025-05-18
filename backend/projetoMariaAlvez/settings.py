@@ -1,14 +1,8 @@
 import os
 from pathlib import Path
-from urllib.parse import urlparse
-
-print(os.environ.get('DATABASE_URL'))
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-7*9%=-fxa#a@bzgi-a_l+4)^w79p&8lr$#mo3a4$l7&emq#5e2'
@@ -16,7 +10,7 @@ SECRET_KEY = 'django-insecure-7*9%=-fxa#a@bzgi-a_l+4)^w79p&8lr$#mo3a4$l7&emq#5e2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'backend']
 
 # Application definition
 INSTALLED_APPS = [
@@ -28,28 +22,18 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'corsheaders',
     'projetoMariaAlvezApp.apps.projetoMariaAlvezAppConfig',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # Antes do CommonMiddleware
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-
-# Adicionando configurações para o CORS
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:8080',  # O endereço do seu front-end Vue.js
-]
-
-# Se você deseja permitir todas as origens durante o desenvolvimento, use:
-# CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = 'projetoMariaAlvez.urls'
 
@@ -72,22 +56,18 @@ TEMPLATES = [
 WSGI_APPLICATION = 'projetoMariaAlvez.wsgi.application'
 
 # Database
-# https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'centro_de_bem_estar_maria_alvez',
-        'USER': 'admin',
-        'PASSWORD': 'adminadmin',
-        'HOST': 'postgres',
-        'PORT': '5432',
+        'NAME': os.getenv('DB_NAME', 'centro_de_bem_estar_maria_alvez'),
+        'USER': os.getenv('DB_USER', 'admin'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'adminadmin'),
+        'HOST': os.getenv('DB_HOST', 'postgres'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
 # Password validation
-# https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -104,30 +84,24 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Internationalization
-# https://docs.djangoproject.com/en/5.0/topics/i18n/
-
 LANGUAGE_CODE = 'pt-br'
-
-TIME_ZONE = 'UTC'
-
+TIME_ZONE = 'America/Sao_Paulo'
 USE_I18N = True
-
+USE_L10N = True
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.0/howto/static-files/
-
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [BASE_DIR / "projetoMariaAlvezApp/static"]
+STATIC_ROOT = BASE_DIR / "static"
 
 # Default primary key field type
-# https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Jazzmin settings for Django Admin customization
 JAZZMIN_SETTINGS = {
-    "site_logo": "img/logo.png",  
-    "site_logo_classes": "img-circle elevation-3",  
-    "site_logo_icon": None,  
+    "site_logo": "img/logo.png",
+    "site_logo_classes": "img-circle elevation-3",
     "site_title": "Centro de Bem Estar Animal - Maria Alvez",
     "site_header": "Centro de Bem Estar Animal - Maria Alvez",
     "site_brand": "CBEA Maria Alves",
@@ -136,7 +110,7 @@ JAZZMIN_SETTINGS = {
     "custom_css": "css/custom_admin.css",
 
     "topmenu_links": [
-        {"name": "Início",  "url": "admin:index", "permissions": ["auth.view_user"]},
+        {"name": "Início", "url": "admin:index", "permissions": ["auth.view_user"]},
         {"model": "projetoMariaAlvezApp.Tutor"},
         {"model": "projetoMariaAlvezApp.Animal"},
     ],
@@ -153,23 +127,28 @@ JAZZMIN_SETTINGS = {
 }
 
 JAZZMIN_UI_TWEAKS = {
-    "theme": "flatly", 
-
+    "theme": "flatly",
     "navbar": "navbar-dark bg-primary",
     "accent": "accent-info",
     "sidebar": "sidebar-dark-primary",
     "primary": "primary",
 
     "custom_theme": {
-        "--primary": "#006699",     
-        "--accent": "#4CAF50",      
-        "--success": "#4CAF50",     
-        "--info": "#006699",        
-        "--warning": "#FFA726",     
-        "--danger": "#D64541",      
+        "--primary": "#006699",
+        "--accent": "#4CAF50",
+        "--success": "#4CAF50",
+        "--info": "#006699",
+        "--warning": "#FFA726",
+        "--danger": "#D64541",
         "--light": "#ffffff",
         "--dark": "#2f2f2f",
-        "--body-bg": "#f4f6f9",     
-        "--text-color": "#212529",  
+        "--body-bg": "#f4f6f9",
+        "--text-color": "#212529",
     }
 }
+
+# Configuração para debug (para evitar problemas com arquivos estáticos)
+if DEBUG:
+    import mimetypes
+    mimetypes.add_type("application/javascript", ".js", True)
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'

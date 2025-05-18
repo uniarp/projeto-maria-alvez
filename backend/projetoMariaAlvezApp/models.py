@@ -3,48 +3,62 @@ from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
-from datetime import timedelta
 
 class Tutor(models.Model):
     id_tutor = models.BigAutoField(primary_key=True, verbose_name="ID do Tutor")
-    nome = models.CharField(max_length=80, verbose_name="Nome")
+    
+    nome = models.CharField(max_length=100, verbose_name="Nome")
     sobrenome = models.CharField(max_length=80, verbose_name="Sobrenome")
-    rua = models.CharField(max_length=80, verbose_name="Rua")
-    bairro = models.CharField(max_length=80, verbose_name="Bairro")
-    numero = models.IntegerField(verbose_name="Número", validators=[MinValueValidator(1)])
-    cidade = models.CharField(max_length=80, verbose_name="Cidade")
-    estado = models.CharField(max_length=2, verbose_name="Estado")
-    cep = models.CharField(
-        max_length=9,
-        verbose_name="CEP",
-        validators=[RegexValidator(
-    r'^\d{5}[-.\s]?\d{3}$',
-    'Digite um CEP válido no formato: 12345-678, 12345678, ou 12345 678.'
-)]
+    cpf = models.CharField(
+        max_length=14,
+        verbose_name="CPF",
+        unique=True,
+        validators=[]
     )
-    email = models.EmailField(verbose_name="E-mail")
+    
     telefone = models.CharField(
         max_length=15,
         verbose_name="Telefone",
         validators=[RegexValidator(
-    r'^\+?55?\s?(\(?\d{2}\)?\s?)?\d{8,9}|\d{10,11}$',
-    'Digite um número de telefone válido no formato: +55 (DD) XXXX-XXXX, (DD) XXXX-XXXX'
-)]
+            r'^\(\d{2}\)\s9\d{4}-\d{4}$',
+            'Digite um telefone válido no formato: (XX) 9XXXX-XXXX, como (11) 91234-5678'
+        )]
     )
-    cpf = models.CharField(
-    max_length=14,
-    verbose_name="CPF",
-    unique=True,
-    validators=[RegexValidator(
-    r'^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$|\d{11}$',
-    'Digite um CPF válido no formato: 123.456.789-00 ou 01234567890 (11 dígitos). O CPF será armazenado como 01234567890 (somente dígitos).'
-)]
-)
+    email = models.EmailField(verbose_name="E-mail")
+    rua = models.CharField(max_length=80, verbose_name="Rua")
+    bairro = models.CharField(max_length=80, verbose_name="Bairro")
+    cidade = models.CharField(max_length=80, verbose_name="Cidade")
+    
+    ESTADOS_CHOICES = [
+        ('AC', 'Acre'), ('AL', 'Alagoas'), ('AP', 'Amapá'), ('AM', 'Amazonas'),
+        ('BA', 'Bahia'), ('CE', 'Ceará'), ('DF', 'Distrito Federal'),
+        ('ES', 'Espírito Santo'), ('GO', 'Goiás'), ('MA', 'Maranhão'),
+        ('MT', 'Mato Grosso'), ('MS', 'Mato Grosso do Sul'), ('MG', 'Minas Gerais'),
+        ('PA', 'Pará'), ('PB', 'Paraíba'), ('PR', 'Paraná'), ('PE', 'Pernambuco'),
+        ('PI', 'Piauí'), ('RJ', 'Rio de Janeiro'), ('RN', 'Rio Grande do Norte'),
+        ('RS', 'Rio Grande do Sul'), ('RO', 'Rondônia'), ('RR', 'Roraima'),
+        ('SC', 'Santa Catarina'), ('SP', 'São Paulo'), ('SE', 'Sergipe'),
+        ('TO', 'Tocantins'),
+    ]
+    estado = models.CharField(
+        max_length=2,
+        verbose_name="Estado",
+        choices=ESTADOS_CHOICES
+    )
+    
+    cep = models.CharField(
+        max_length=9,
+        verbose_name="CEP",
+        validators=[RegexValidator(
+            r'^\d{5}-\d{3}$',
+            'Digite um CEP válido no formato: XXXXX-XXX, como 12345-678'
+        )]
 
-    data_cadastro = models.DateField(
-        verbose_name="Data de Cadastro",
-        default=timezone.now,
-        help_text="Data em que o tutor foi cadastrado"
+    )
+    ativo = models.BooleanField(
+        default=True,
+        verbose_name="Ativo",
+        help_text="Indica se o cadastro do tutor está ativo"
     )
 
     class Meta:
@@ -53,23 +67,53 @@ class Tutor(models.Model):
         indexes = [
             models.Index(fields=['cpf'], name='tutor_cpf_idx'),
             models.Index(fields=['nome', 'sobrenome'], name='tutor_nome_idx'),
+            models.Index(fields=['email'], name='tutor_email_idx'),
         ]
+        ordering = ['nome', 'sobrenome']
 
     def __str__(self):
-        """Retorna uma representação legível do tutor no formato 'Nome Sobrenome - CPF'."""
         return f"{self.nome} {self.sobrenome} - {self.cpf}"
 
     def clean(self):
-        """Valida o CPF antes de salvar."""
+        """Valida o CPF, telefone e a data de cadastro antes de salvar."""
         super().clean()
+        # Validação do CPF
+        cleaned_cpf = ''.join(filter(str.isdigit, self.cpf))
+        if len(cleaned_cpf) != 11:
+            raise ValidationError("O CPF deve conter exatamente 11 dígitos.")
         cpf_validator = CPF()
-        if not cpf_validator.validate(self.cpf.replace('.', '').replace('-', '')):
+        if not cpf_validator.validate(cleaned_cpf):
             raise ValidationError("O CPF informado é inválido.")
+        self.cpf = cleaned_cpf
+        
+        # Validação do telefone (opcional, já validado pelo RegexValidator)
+        cleaned_telefone = ''.join(filter(str.isdigit, self.telefone))
+        if len(cleaned_telefone) not in (10, 11):
+            raise ValidationError("O telefone deve conter 10 ou 11 dígitos.")
+
+    def save(self, *args, **kwargs):
+        """Sobrescreve o método save para garantir validação antes de salvar"""
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     @property
     def nome_completo(self):
-        """Retorna o nome completo do tutor."""
         return f"{self.nome} {self.sobrenome}"
+    
+    @property
+    def endereco_completo(self):
+        return f"{self.rua}, {self.bairro}, {self.cidade} - {self.estado}, CEP: {self.cep}"
+    
+    def get_cpf_numerico(self):
+        return self.cpf.replace('.', '').replace('-', '')
+    
+    def get_animais(self):
+        return self.animais.all()
+    
+    def tem_consultas_pendentes(self):
+        from datetime import datetime
+        consultas = self.consultaclinica_set.filter(data_hora__gte=datetime.now())
+        return consultas.exists()
 
 class Especie(models.Model):
     id_especie = models.BigAutoField(primary_key=True)
@@ -110,11 +154,6 @@ class Animal(models.Model):
         validators=[MinValueValidator(0, "A idade deve ser maior ou igual a 0")],
     )
     especie = models.ForeignKey(Especie, on_delete=models.CASCADE, verbose_name="Espécie", related_name="animais")
-    data_cadastro = models.DateField(
-        verbose_name="Data de Cadastro",
-        default=timezone.now,
-        help_text="Data em que o animal foi cadastrado"
-    )
 
     class Meta:
         verbose_name = "Animal"
@@ -137,17 +176,11 @@ class Animal(models.Model):
             raise ValidationError("Um animal deve ter um tutor associado.")
         if not self.raca or not self.especie:
             raise ValidationError("Raça e espécie são obrigatórios.")
-        if self.data_cadastro > timezone.now().date():
-            raise ValidationError("A data de cadastro não pode ser no futuro.")
 
     @property
     def idade_em_meses(self):
         """Calcula a idade do animal em meses."""
-        from datetime import date
-        hoje = date.today()
-        meses = (hoje.year - self.data_cadastro.year) * 12 + (hoje.month - self.data_cadastro.month)
-        return max(0, meses)  # Garante que não seja negativo
-
+  
     def eh_valido(self):
         """Verifica se o animal tem idade válida e tutor associado."""
         return self.idade >= 0 and self.tutor is not None
@@ -274,19 +307,12 @@ class AnimalCastracao(models.Model):
     sexo = models.CharField(max_length=10, choices=[('M', 'Macho'), ('F', 'Fêmea')])
     idade = models.IntegerField()
     tutor = models.ForeignKey(Tutor, on_delete=models.CASCADE)
-    data_cadastro = models.DateField()
     status_castracao = models.CharField(max_length=20, choices=[('Pendente', 'Pendente'), ('Realizada', 'Realizada')])
     data_prevista_castracao = models.DateField(blank=True, null=True)
 
     class Meta:
         verbose_name = "Animal para Castração"
         verbose_name_plural = "Animais para Castração"
-
-    def clean(self):
-        super().clean()
-        if self.data_prevista_castracao and self.data_cadastro:
-            if self.data_prevista_castracao < self.data_cadastro:
-                raise ValidationError("A data prevista para castração não pode ser anterior à data de cadastro.")
 
     def __str__(self):
         return f"{self.nome_animal} - {self.status_castracao}"

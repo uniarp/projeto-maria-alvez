@@ -1,4 +1,5 @@
 from django.contrib import admin
+from .forms import TutorForm
 from .models import (
     Tutor, Especie, Raca, Animal, Vacina, Medicamento, Exame, Prestadores,
     VacinaVermifugos, AnimalCastracao, ListaCastracao, ExameVeterinario,
@@ -11,7 +12,13 @@ class TutorAdmin(admin.ModelAdmin):
     list_display = ('nome', 'sobrenome', 'cpf', 'email', 'telefone')
     search_fields = ('nome', 'sobrenome', 'cpf', 'email')
     list_filter = ('estado', 'cidade')
+    form = TutorForm
 
+    class Media:
+        js = (
+            'https://cdnjs.cloudflare.com/ajax/libs/jquery.inputmask/5.0.9/jquery.inputmask.min.js',
+            'js/tutor_mask.js',
+        )
 @admin.register(Especie)
 class EspecieAdmin(admin.ModelAdmin):
     list_display = ('nome',)
