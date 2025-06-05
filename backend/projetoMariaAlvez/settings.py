@@ -141,15 +141,31 @@ JAZZMIN_SETTINGS = {
         {"model": "projetoMariaAlvezApp.Animal"},
     ],
 
-    "icons": {
-        "auth.User": "fas fa-user",
-        "auth.Group": "fas fa-users",
-        "projetoMariaAlvezApp.Tutor": "fas fa-user",
-        "projetoMariaAlvezApp.Animal": "fas fa-dog",
-        "projetoMariaAlvezApp.ConsultaClinica": "fas fa-stethoscope",
-        "projetoMariaAlvezApp.Cirurgia": "fas fa-cut",
-        "projetoMariaAlvezApp.Vacina": "fas fa-syringe",
-    },
+"icons": {
+    "auth.User": "fas fa-user",
+    "auth.Group": "fas fa-users",
+
+    "projetoMariaAlvezApp.Tutor": "fas fa-user",
+    "projetoMariaAlvezApp.Especie": "fas fa-paw",
+    "projetoMariaAlvezApp.Raca": "fas fa-dna",
+    "projetoMariaAlvezApp.Animal": "fas fa-dog",
+    "projetoMariaAlvezApp.Vacina": "fas fa-syringe",
+    "projetoMariaAlvezApp.Medicamento": "fas fa-pills",
+    "projetoMariaAlvezApp.Exame": "fas fa-vials",
+    "projetoMariaAlvezApp.Prestadores": "fas fa-user-md",
+    "projetoMariaAlvezApp.VacinaVermifugos": "fas fa-syringe",
+    "projetoMariaAlvezApp.AnimalCastracao": "fas fa-dog",
+    "projetoMariaAlvezApp.ListaCastracao": "fas fa-list",
+    "projetoMariaAlvezApp.ExameVeterinario": "fas fa-microscope",
+    "projetoMariaAlvezApp.ListaExames": "fas fa-clipboard-list",
+    "projetoMariaAlvezApp.Produto": "fas fa-box",
+    "projetoMariaAlvezApp.Estoque": "fas fa-warehouse",
+    "projetoMariaAlvezApp.Cirurgia": "fas fa-cut",
+    "projetoMariaAlvezApp.Internacao": "fas fa-procedures",
+    "projetoMariaAlvezApp.ConsultaClinica": "fas fa-stethoscope",
+    "projetoMariaAlvezApp.RelatorioAtendimento": "fas fa-file-medical",
+    "projetoMariaAlvezApp.RelatorioAcompanhamento": "fas fa-notes-medical",
+},
 }
 
 JAZZMIN_UI_TWEAKS = {
